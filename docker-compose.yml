@@ -8,25 +8,27 @@ services:
     container_name: gem_marketplace_app
     volumes:
       - .:/var/www
-      - ./storage:/var/www/storage
-    depends_on:
-      - mysql
-      - mongodb
     environment:
-      - APP_ENV=local
-      - APP_DEBUG=true
-      - APP_URL=http://localhost
+      - APP_ENV=production
+      - APP_DEBUG=false
+      - APP_URL=http://13.60.10.35
+      - APP_KEY=base64:PkDrrjQqzjXuYg6DUpbn1Yjm/QbNPH/OnJb4HBjj8fU=
       - DB_CONNECTION=mysql
-      - DB_HOST=mysql
+      - DB_HOST=shyamgems.c7c4w8eokqa2.eu-north-1.rds.amazonaws.com
       - DB_PORT=3306
       - DB_DATABASE=my_gem_platform
-      - DB_USERNAME=root
-      - DB_PASSWORD=root
-      - MONGO_DB_HOST=mongodb
+      - DB_USERNAME=admin # Replace with your RDS username
+      - DB_PASSWORD=secure_password # Replace with your RDS password
+      - MONGO_DB_CONNECTION=mongodb
+      - MONGO_DB_HOST=mongodb+srv://<atlas-username>:<atlas-password>@cluster0.mongodb.net
       - MONGO_DB_PORT=27017
       - MONGO_DB_DATABASE=my_gem_platform_mongo
-      - MONGO_DB_USERNAME=
-      - MONGO_DB_PASSWORD=
+      - MONGO_DB_USERNAME= # Optional, included in connection string
+      - MONGO_DB_PASSWORD= # Optional, included in connection string
+      - REVERB_HOST=gem_marketplace_reverb
+      - REVERB_PORT=8080
+      - VITE_REVERB_HOST=13.60.10.35
+      - VITE_REVERB_PORT=8080
     networks:
       - gem-marketplace-network
 
@@ -43,34 +45,20 @@ services:
     networks:
       - gem-marketplace-network
 
-  mysql:
-    image: mysql:8.0
-    container_name: gem_marketplace_mysql
+  reverb:
+    image: beyondcode/laravel-websockets
+    container_name: gem_marketplace_reverb
     ports:
-      - "3306:3306"
-    volumes:
-      - mysql_data:/var/lib/mysql
+      - "8080:8080"
     environment:
-      - MYSQL_DATABASE=my_gem_platform
-      - MYSQL_ROOT_PASSWORD=root
+      - LARAVEL_WEBSOCKETS_PORT=8080
+      - LARAVEL_WEBSOCKETS_HOST=0.0.0.0
+    volumes:
+      - .:/var/www
+    depends_on:
+      - app
     networks:
       - gem-marketplace-network
-
-  mongodb:
-    image: mongo:latest
-    container_name: gem_marketplace_mongodb
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongodb_data:/data/db
-    environment:
-      - MONGO_INITDB_DATABASE=my_gem_platform_mongo
-    networks:
-      - gem-marketplace-network
-
-volumes:
-  mysql_data:
-  mongodb_data:
 
 networks:
   gem-marketplace-network:

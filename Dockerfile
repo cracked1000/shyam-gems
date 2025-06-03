@@ -13,6 +13,8 @@ RUN apt-get update && apt-get install -y \
     libxml2-dev \
     zip \
     unzip \
+    nodejs \
+    npm \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -31,6 +33,9 @@ COPY . /var/www
 # Install Laravel dependencies
 RUN composer install --optimize-autoloader --no-dev
 
+# Compile frontend assets (adjust for Laravel Mix or Vite if needed)
+RUN npm install && npm run build
+
 # Set permissions
 RUN chown -R www-data:www-data /var/www \
     && chmod -R 755 /var/www/storage \
@@ -38,6 +43,9 @@ RUN chown -R www-data:www-data /var/www \
 
 # Expose port 9000 for PHP-FPM
 EXPOSE 9000
+
+# Healthcheck for PHP-FPM
+HEALTHCHECK --interval=30s --timeout=3s CMD ["php-fpm", "-t"]
 
 # Start PHP-FPM
 CMD ["php-fpm"]
