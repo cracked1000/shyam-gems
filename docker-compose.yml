@@ -1,0 +1,77 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: gem_marketplace_app
+    volumes:
+      - .:/var/www
+      - ./storage:/var/www/storage
+    depends_on:
+      - mysql
+      - mongodb
+    environment:
+      - APP_ENV=local
+      - APP_DEBUG=true
+      - APP_URL=http://localhost
+      - DB_CONNECTION=mysql
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_DATABASE=my_gem_platform
+      - DB_USERNAME=root
+      - DB_PASSWORD=root
+      - MONGO_DB_HOST=mongodb
+      - MONGO_DB_PORT=27017
+      - MONGO_DB_DATABASE=my_gem_platform_mongo
+      - MONGO_DB_USERNAME=
+      - MONGO_DB_PASSWORD=
+    networks:
+      - gem-marketplace-network
+
+  nginx:
+    image: nginx:alpine
+    container_name: gem_marketplace_nginx
+    ports:
+      - "80:80"
+    volumes:
+      - .:/var/www
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - app
+    networks:
+      - gem-marketplace-network
+
+  mysql:
+    image: mysql:8.0
+    container_name: gem_marketplace_mysql
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    environment:
+      - MYSQL_DATABASE=my_gem_platform
+      - MYSQL_ROOT_PASSWORD=root
+    networks:
+      - gem-marketplace-network
+
+  mongodb:
+    image: mongo:latest
+    container_name: gem_marketplace_mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      - MONGO_INITDB_DATABASE=my_gem_platform_mongo
+    networks:
+      - gem-marketplace-network
+
+volumes:
+  mysql_data:
+  mongodb_data:
+
+networks:
+  gem-marketplace-network:
+    driver: bridge

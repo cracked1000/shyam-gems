@@ -6,11 +6,10 @@ use Livewire\Component;
 use Livewire\WithFileUploads;
 use App\Models\Requirement;
 use App\Models\Reply;
-use App\Events\NewRequirementPosted;
-use App\Events\NewReplyPosted;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
 
 class Feed extends Component
 {
@@ -28,12 +27,9 @@ class Feed extends Component
     public $showProposalForm = false;
 
     public $requirements;
-
-    protected $listeners = [
-        'refreshFeed' => 'refreshFeed',
-        'echo:requirements,NewRequirementPosted' => 'onNewRequirement',
-        'echo:requirements,NewReplyPosted' => 'onNewReply',
-    ];
+    public $lastUpdated;
+    public $newRequirementsCount = 0;
+    public $newRepliesCount = 0;
 
     protected $rules = [
         'title' => 'required|string|max:255',
@@ -50,6 +46,7 @@ class Feed extends Component
             return redirect()->route('login.show');
         }
         $this->loadRequirements();
+        $this->lastUpdated = now();
         Log::info('Mounted Feed: Requirements count - ' . $this->requirements->count());
     }
 
@@ -92,13 +89,8 @@ class Feed extends Component
         $requirement->load(['user', 'replies.user']);
         Log::info('Relationships loaded for requirement');
 
-        // Broadcast to others (not current user)
-        try {
-            broadcast(new NewRequirementPosted($requirement))->toOthers();
-            Log::info('Broadcasting completed successfully for requirement: ' . $requirement->id);
-        } catch (\Exception $e) {
-            Log::error('Broadcasting failed: ' . $e->getMessage());
-        }
+        // Update cache to notify other users
+        $this->updateLastActivityCache();
 
         // Add to current user's feed immediately
         $this->requirements->prepend($requirement);
@@ -146,13 +138,8 @@ class Feed extends Component
         // Load user relationship
         $reply->load('user');
 
-        // Broadcast to others (not current user)
-        try {
-            broadcast(new NewReplyPosted($reply))->toOthers();
-            Log::info('Reply broadcasting completed successfully for reply: ' . $reply->id);
-        } catch (\Exception $e) {
-            Log::error('Reply broadcasting failed: ' . $e->getMessage());
-        }
+        // Update cache to notify other users
+        $this->updateLastActivityCache();
 
         // Update current user's feed immediately
         $this->updateRequirementWithNewReply($reply);
@@ -163,121 +150,58 @@ class Feed extends Component
         Log::info('Posted Reply for Requirement ID: ' . $this->selectedRequirementId);
     }
 
-    public function onNewRequirement($data)
+    public function checkForUpdates()
     {
-        Log::info('Received new requirement via Reverb', ['data' => $data]);
-
-        try {
-            // For Laravel Reverb, log the exact structure to debug
-            Log::info('Event data structure:', [
-                'data' => $data,
-                'keys' => is_array($data) ? array_keys($data) : 'not_array',
-                'type' => gettype($data)
-            ]);
-
-            $requirementData = null;
+        Log::info('Checking for updates via polling');
+        
+        // Get the latest activity timestamp
+        $latestActivity = Cache::get('feed_last_activity', $this->lastUpdated);
+        
+        if ($latestActivity > $this->lastUpdated) {
+            Log::info('New activity detected, refreshing feed');
             
-            // Try different possible data structures
-            if (isset($data['requirement'])) {
-                $requirementData = $data['requirement'];
-            } elseif (is_array($data) && isset($data['id'])) {
-                // Data might be at root level
-                $requirementData = $data;
-            } else {
-                Log::warning('Using raw data as requirement data');
-                $requirementData = $data;
-            }
-
-            // Validate we have the required fields
-            if (!isset($requirementData['id'])) {
-                Log::error('No ID found in requirement data', ['data' => $requirementData]);
-                return;
-            }
-
-            // Fetch the fresh requirement from database to ensure we have all data
-            $requirement = Requirement::with(['user', 'replies.user'])->find($requirementData['id']);
+            // Store current requirement IDs and reply counts
+            $currentRequirementIds = $this->requirements->pluck('id')->toArray();
+            $currentReplyCounts = $this->requirements->mapWithKeys(function ($req) {
+                return [$req->id => $req->replies->count()];
+            })->toArray();
             
-            if (!$requirement) {
-                Log::error('Requirement not found in database', ['id' => $requirementData['id']]);
-                return;
-            }
-
-            // Add to the top of the feed if not already present
-            if (!$this->requirements->contains('id', $requirement->id)) {
-                $this->requirements->prepend($requirement);
-                
-                // Show notification
-                $this->dispatch('alert', ['type' => 'info', 'message' => 'New requirement posted by ' . $requirement->user->name . '!']);
-                Log::info('New requirement added to feed via broadcast');
+            // Reload requirements
+            $this->loadRequirements();
+            
+            // Check for new requirements
+            $newRequirementIds = $this->requirements->pluck('id')->diff($currentRequirementIds);
+            if ($newRequirementIds->count() > 0) {
+                $this->newRequirementsCount += $newRequirementIds->count();
+                $newRequirement = $this->requirements->firstWhere('id', $newRequirementIds->first());
+                if ($newRequirement) {
+                    $this->dispatch('alert', [
+                        'type' => 'info', 
+                        'message' => 'New requirement posted by ' . $newRequirement->user->name . '!'
+                    ]);
+                }
             }
             
-        } catch (\Exception $e) {
-            Log::error('Error processing new requirement broadcast', [
-                'error' => $e->getMessage(),
-                'line' => $e->getLine(),
-                'file' => $e->getFile(),
-                'data' => $data
-            ]);
-        }
-    }
-
-    public function onNewReply($data)
-    {
-        Log::info('Received new reply via Reverb', ['data' => $data]);
-
-        try {
-            // Log the exact structure to debug
-            Log::info('Reply event data structure:', [
-                'data' => $data,
-                'keys' => is_array($data) ? array_keys($data) : 'not_array',
-                'type' => gettype($data)
-            ]);
-
-            $replyData = null;
-            $requirementId = null;
-            
-            // Try different possible data structures
-            if (isset($data['reply']) && isset($data['requirement_id'])) {
-                $replyData = $data['reply'];
-                $requirementId = $data['requirement_id'];
-            } elseif (isset($data['requirement_id'])) {
-                $replyData = $data;
-                $requirementId = $data['requirement_id'];
-            } else {
-                Log::error('Cannot determine reply structure', ['data' => $data]);
-                return;
+            // Check for new replies
+            foreach ($this->requirements as $requirement) {
+                $oldCount = $currentReplyCounts[$requirement->id] ?? 0;
+                $newCount = $requirement->replies->count();
+                if ($newCount > $oldCount) {
+                    $this->newRepliesCount += ($newCount - $oldCount);
+                    $latestReply = $requirement->replies->sortByDesc('created_at')->first();
+                    if ($latestReply) {
+                        $this->dispatch('alert', [
+                            'type' => 'info', 
+                            'message' => 'New reply from ' . $latestReply->user->name . '!'
+                        ]);
+                    }
+                }
             }
-
-            // Validate we have the required fields
-            if (!isset($replyData['id']) || !$requirementId) {
-                Log::error('Missing required reply data', [
-                    'reply_data' => $replyData,
-                    'requirement_id' => $requirementId
-                ]);
-                return;
-            }
-
-            // Fetch the fresh reply from database to ensure we have all data
-            $reply = Reply::with('user')->find($replyData['id']);
             
-            if (!$reply) {
-                Log::error('Reply not found in database', ['id' => $replyData['id']]);
-                return;
-            }
-
-            // Update the requirement with the new reply
-            $this->updateRequirementWithNewReply($reply);
-
-            // Show notification
-            $this->dispatch('alert', ['type' => 'info', 'message' => 'New reply from ' . $reply->user->name . '!']);
-            Log::info('New reply added to feed via broadcast');
-            
-        } catch (\Exception $e) {
-            Log::error('Error processing new reply broadcast', [
-                'error' => $e->getMessage(),
-                'line' => $e->getLine(),
-                'file' => $e->getFile(),
-                'data' => $data
+            $this->lastUpdated = now();
+            Log::info('Feed updated via polling', [
+                'new_requirements' => $newRequirementIds->count(),
+                'new_replies' => $this->newRepliesCount
             ]);
         }
     }
@@ -305,9 +229,19 @@ class Feed extends Component
         }
     }
 
+    private function updateLastActivityCache()
+    {
+        // Update the last activity timestamp in cache
+        Cache::put('feed_last_activity', now(), now()->addMinutes(60));
+        Log::info('Updated last activity cache timestamp');
+    }
+
     public function refreshFeed()
     {
         $this->loadRequirements();
+        $this->lastUpdated = now();
+        $this->newRequirementsCount = 0;
+        $this->newRepliesCount = 0;
         Log::info('Feed refreshed manually');
     }
 

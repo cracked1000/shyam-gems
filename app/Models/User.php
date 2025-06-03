@@ -12,6 +12,7 @@ use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use App\Notifications\CustomVerifyEmail; // Add this import
 
 class User extends Authenticatable implements MustVerifyEmail
 {
@@ -311,5 +312,13 @@ class User extends Authenticatable implements MustVerifyEmail
     public function routeNotificationForDatabase()
     {
         return $this->id;
+    }
+
+    /**
+     * Send the email verification notification.
+     */
+    public function sendEmailVerificationNotification()
+    {
+        $this->notify(new CustomVerifyEmail($this));
     }
 }

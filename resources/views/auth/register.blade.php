@@ -33,7 +33,7 @@
             @endif
 
             <!-- Registration Form -->
-            <form method="POST" action="{{ $role === 'seller' ? route('seller.register') : route('client.register') }}" class="space-y-4">
+            <form method="POST" action="{{ $role === 'seller' ? route('seller.register') : route('client.register') }}" class="space-y-4" enctype="multipart/form-data">
                 @csrf
 
                 <!-- First Name Input -->
@@ -115,6 +115,49 @@
                          autocomplete="new-password" />
                 </div>
 
+                <!-- Phone Number Input -->
+                <div>
+                    <input id="telephone"
+                         class="block w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:border-[#9a8211] text-gray-700 placeholder-gray-400 bg-white"
+                         type="tel"
+                         name="telephone"
+                         value="{{ old('telephone') }}"
+                         placeholder="Phone Number (e.g., 0123456789)"
+                         required />
+                </div>
+
+                <!-- Bio Input -->
+                <div>
+                    <textarea id="bio"
+                            class="block w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:border-[#9a8211] text-gray-700 placeholder-gray-400 bg-white resize-none"
+                            name="bio"
+                            placeholder="Bio (e.g., About yourself)"
+                            rows="4">{{ old('bio') }}</textarea>
+                </div>
+
+                <!-- Experience Input -->
+                <div>
+                    <input id="experience"
+                         class="block w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:border-[#9a8211] text-gray-700 placeholder-gray-400 bg-white"
+                         type="number"
+                         name="experience"
+                         value="{{ old('experience') }}"
+                         placeholder="Years of Experience (e.g., 5)"
+                         min="0"
+                         required />
+                </div>
+
+                <!-- Profile Photo Input -->
+                <div>
+                    <label for="profile_photo" class="block text-sm font-medium text-gray-700 mb-1">Profile Photo</label>
+                    <input id="profile_photo"
+                         class="block w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:border-[#9a8211] text-gray-700 bg-white"
+                         type="file"
+                         name="profile_photo"
+                         accept="image/*"
+                         required />
+                </div>
+
                 <!-- Register Button -->
                 <div class="pt-2">
                     <button type="submit"
@@ -126,7 +169,7 @@
 
             <p class="text-center mt-6 text-sm text-gray-600">
                 Already have an account? 
-                <a href="{{ route('login.show') }}" class="text-[#00B4D8] hover:underline">Login here</a>
+                <a href="{{ route('login') }}" class="text-[#00B4D8] hover:underline">Login here</a>
             </p>
         </div>
     </div>

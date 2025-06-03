@@ -21,7 +21,7 @@
                 <div class="flex items-center mb-6">
                     <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-100 to-yellow-50 border-2 border-amber-200 flex items-center justify-center">
                         @if($user->profile_photo_path)
-                            <img src="{{ $user->profile_photo_url }}" alt="Profile" class="w-full h-full rounded-2xl object-cover">
+                            <img src="{{ asset('storage/' . $user->profile_photo_path) }}" alt="Profile" class="w-full h-full rounded-2xl object-cover">
                         @else
                             <span class="text-2xl font-bold text-amber-800">
                                 {{ strtoupper(substr($user->first_name ?? $user->username ?? 'U', 0, 1)) }}
@@ -42,7 +42,7 @@
                         <p class="text-gray-600"><i class="fas fa-envelope mr-2"></i> {{ $user->email ?? 'N/A' }}</p>
                     </div>
                     <div class="bg-gray-50 p-4 rounded-2xl">
-                        <p class="text-gray-600"><i class="fas fa-phone mr-2"></i> {{ $user->telephone ?? 'N/A' }}</p>
+                        <p class="text-gray-600"><i class="fas fa-phone mr-2"></i> {{ $user->phone_number ?? 'N/A' }}</p> <!-- Updated from telephone -->
                     </div>
                 </div>
             </div>
@@ -54,9 +54,7 @@
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                         @foreach($gems as $gem)
                             <div class="bg-gray-50 p-4 rounded-2xl border border-gray-200">
-                                <!-- Debug Output -->
-                                
-                                <img src="{{ Storage::url($gem->image) }}" alt="{{ $gem->name }}" class="w-full h-48 object-cover rounded-lg mb-2" onerror="this.src='https://via.placeholder.com/500x300?text=No+Image+Available';">
+                                <img src="{{ asset('storage/' . $gem->image) }}" alt="{{ $gem->name }}" class="w-full h-48 object-cover rounded-lg mb-2" onerror="this.src='https://via.placeholder.com/500x300?text=No+Image+Available';">
                                 <h3 class="text-lg font-semibold">{{ $gem->name }}</h3>
                                 <p class="text-gray-600 text-sm">{{ $gem->description }}</p>
                             </div>
@@ -66,6 +64,8 @@
             @elseif($user->role === 'seller' && $gems->isEmpty())
                 <div class="bg-white shadow-lg rounded-3xl p-8 border border-gray-100 mt-8 text-center">
                     <p class="text-gray-600">No gems available in the gallery.</p>
+                   
+                   
                 </div>
             @endif
         @else
@@ -103,4 +103,3 @@
             }, 5000);
         });
     </script>
-</div>

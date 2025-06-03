@@ -17,16 +17,18 @@ class Profile extends Component
     {
         try {
             $this->user = User::where('username', $username)->firstOrFail();
-            $this->gems = Gem::where('seller_id', $this->user->id)->get();
+            $this->gems = Gem::forSeller($this->user->id)->get(); // Use scope with string casting
             
             Log::info('Profile loaded for user: ' . $this->user->username, [
                 'id' => $this->user->id,
                 'first_name' => $this->user->first_name,
                 'last_name' => $this->user->last_name,
                 'email' => $this->user->email,
-                'telephone' => $this->user->telephone,
+                'phone_number' => $this->user->phone_number,
                 'role' => $this->user->role,
                 'profile_photo_path' => $this->user->profile_photo_path,
+                'gem_count' => $this->gems->count(),
+                'seller_id' => $this->user->id,
             ]);
 
             if (Auth::check()) {
@@ -43,6 +45,7 @@ class Profile extends Component
     {
         Log::info('Rendering Profile component', [
             'username' => $this->user ? $this->user->username : 'Not Found',
+            'gem_count' => $this->gems ? $this->gems->count() : 0,
         ]);
         return view('livewire.profile', ['gems' => $this->gems])
             ->layout('components.layouts.app')

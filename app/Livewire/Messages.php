@@ -23,6 +23,10 @@ class Messages extends Component
     public $newMessageMode = false;
     public $newMessageSearch = '';
     public $unreadCount = 0;
+    public $lastMessageId = null;
+    public $lastUnreadCount = 0;
+    public $pollingInterval = 3000; // 3 seconds
+    public $isPolling = false; // Track polling state
 
     protected $rules = [
         'messageContent' => 'required|string|max:1000',
@@ -43,6 +47,7 @@ class Messages extends Component
         }
         $this->resetPage();
         $this->updateUnreadCount();
+        $this->setLastMessageId();
     }
 
     public function updatedSearch()
@@ -76,6 +81,7 @@ class Messages extends Component
             $this->reset(['messageContent', 'newMessageSearch']);
             $this->markMessagesAsRead();
             $this->updateUnreadCount();
+            $this->setLastMessageId();
             $this->dispatch('scrollToBottom');
         } catch (\Exception $e) {
             \Log::error('Error selecting user: ' . $e->getMessage());
@@ -150,9 +156,7 @@ class Messages extends Component
             // Update the sender's UI immediately
             $this->conversationMessages->push($message);
             $this->reset('messageContent');
-
-            // Broadcast the new message
-            event(new \App\Events\MessageSent($message));
+            $this->setLastMessageId();
 
             $this->dispatch('show-success', message: 'Message sent successfully!');
             $this->dispatch('scrollToBottom');
@@ -180,6 +184,7 @@ class Messages extends Component
             }
             $message->deleteForUser(Auth::id());
             $this->loadMessages();
+            $this->setLastMessageId();
             $this->dispatch('show-success', message: 'Message deleted successfully.');
         } catch (\Exception $e) {
             \Log::error('Error deleting message: ' . $e->getMessage());
@@ -211,6 +216,139 @@ class Messages extends Component
             \Log::error('Error updating unread count: ' . $e->getMessage());
             $this->unreadCount = 0;
         }
+    }
+
+    /**
+     * Set the last message ID for polling comparison
+     */
+    public function setLastMessageId()
+    {
+        try {
+            if ($this->selectedUser) {
+                $lastMessage = Message::betweenUsers(Auth::id(), $this->selectedUser->id)
+                    ->notDeletedByUser(Auth::id())
+                    ->latest()
+                    ->first();
+                $this->lastMessageId = $lastMessage ? $lastMessage->id : null;
+            }
+        } catch (\Exception $e) {
+            \Log::error('Error setting last message ID: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Background poll for updates - called by JavaScript without visible loading states
+     */
+    public function backgroundPoll()
+    {
+        try {
+            $this->isPolling = true;
+            $hasUpdates = false;
+            
+            // Check for unread count changes
+            $currentUnreadCount = Message::unreadForUser(Auth::id())->count();
+            if ($currentUnreadCount !== $this->lastUnreadCount) {
+                $this->unreadCount = $currentUnreadCount;
+                $this->lastUnreadCount = $currentUnreadCount;
+                $hasUpdates = true;
+            }
+
+            // Check for new messages in current conversation
+            if ($this->selectedUser) {
+                $latestMessage = Message::betweenUsers(Auth::id(), $this->selectedUser->id)
+                    ->notDeletedByUser(Auth::id())
+                    ->latest()
+                    ->first();
+
+                $latestMessageId = $latestMessage ? $latestMessage->id : null;
+
+                if ($latestMessageId !== $this->lastMessageId) {
+                    // New messages available, reload the conversation
+                    $this->loadMessages();
+                    $this->markMessagesAsRead();
+                    $this->lastMessageId = $latestMessageId;
+                    $this->dispatch('scrollToBottom');
+                    $this->dispatch('newMessageReceived');
+                    $hasUpdates = true;
+                }
+            }
+
+            $this->isPolling = false;
+            
+            if ($hasUpdates) {
+                $this->dispatch('messagesUpdated');
+            }
+
+            return [
+                'hasUpdates' => $hasUpdates,
+                'unreadCount' => $this->unreadCount,
+                'timestamp' => now()->timestamp
+            ];
+        } catch (\Exception $e) {
+            \Log::error('Error in background poll: ' . $e->getMessage());
+            $this->isPolling = false;
+            return [
+                'hasUpdates' => false,
+                'unreadCount' => $this->unreadCount,
+                'timestamp' => now()->timestamp,
+                'error' => true
+            ];
+        }
+    }
+
+    /**
+     * Legacy method for compatibility - now calls backgroundPoll
+     */
+    public function pollForUpdates()
+    {
+        return $this->backgroundPoll();
+    }
+
+    /**
+     * Check if there are new messages without full reload
+     */
+    public function checkForNewMessages()
+    {
+        try {
+            if (!$this->selectedUser) {
+                return false;
+            }
+
+            $latestMessage = Message::betweenUsers(Auth::id(), $this->selectedUser->id)
+                ->notDeletedByUser(Auth::id())
+                ->latest()
+                ->first();
+
+            $latestMessageId = $latestMessage ? $latestMessage->id : null;
+
+            return $latestMessageId !== $this->lastMessageId;
+        } catch (\Exception $e) {
+            \Log::error('Error checking for new messages: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Refresh messages manually
+     */
+    public function refreshMessages()
+    {
+        $this->loadMessages();
+        $this->updateUnreadCount();
+        $this->setLastMessageId();
+        $this->dispatch('messagesRefreshed');
+    }
+
+    /**
+     * Get polling status for frontend
+     */
+    public function getPollingStatus()
+    {
+        return [
+            'isPolling' => $this->isPolling,
+            'interval' => $this->pollingInterval,
+            'lastUpdate' => now()->timestamp
+        ];
     }
 
     public function render()
@@ -261,71 +399,6 @@ class Messages extends Component
                 'newMessageUsers' => collect([]),
             ])->layout('components.layouts.app')->title('Messages');
         }
-    }
-
-    public function getListeners()
-    {
-        return [
-            'echo:messages.' . Auth::id() . ',MessageSent' => 'messageReceived',
-            'refreshMessages' => 'refreshMessages',
-            'messageReceived' => 'messageReceived',
-        ];
-    }
-
-    public function messageReceived($event)
-    {
-        \Log::debug('MessageReceived event triggered', ['event' => $event]);
-        
-        try {
-            // Handle both direct event format and wrapped format
-            $messageData = isset($event['message']) ? $event['message'] : $event;
-            
-            if (!isset($messageData['id'])) {
-                \Log::error('Invalid message data received', ['data' => $messageData]);
-                return;
-            }
-
-            // Create a Message model instance from the data
-            $message = new Message($messageData);
-            $message->exists = true;
-            
-            // Load relationships manually
-            $message->sender = User::find($messageData['sender_id']);
-            $message->receiver = User::find($messageData['receiver_id']);
-            
-            // If we have a selected user and the message is from/to them, update the conversation
-            if ($this->selectedUser) {
-                $senderId = $messageData['sender_id'] ?? null;
-                $receiverId = $messageData['receiver_id'] ?? null;
-                
-                // Check if the message involves the currently selected user
-                if (($senderId == $this->selectedUser->id && $receiverId == Auth::id()) ||
-                    ($senderId == Auth::id() && $receiverId == $this->selectedUser->id)) {
-                    
-                    // Check if message already exists in our collection
-                    $existingMessage = $this->conversationMessages->firstWhere('id', $message->id);
-                    if (!$existingMessage) {
-                        $this->conversationMessages->push($message);
-                        $this->dispatch('scrollToBottom');
-                    }
-                }
-            }
-
-            // Always update unread count
-            $this->updateUnreadCount();
-            
-        } catch (\Exception $e) {
-            \Log::error('Error handling received message', [
-                'error' => $e->getMessage(),
-                'event' => $event
-            ]);
-        }
-    }
-
-    public function refreshMessages()
-    {
-        $this->loadMessages();
-        $this->updateUnreadCount();
     }
 
     public function getFormattedContent($content)

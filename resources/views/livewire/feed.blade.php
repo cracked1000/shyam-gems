@@ -1,4 +1,4 @@
-<div>
+<div wire:poll.10s="checkForUpdates">
     <div class="min-h-screen bg-gradient-to-br from-slate-50 via-stone-50 to-amber-50 p-6">
         <!-- Subtle Background Pattern -->
         <div class="fixed inset-0 opacity-3 pointer-events-none">
@@ -12,6 +12,7 @@
                 {{ session('message') }}
             </div>
         @endif
+
 
         <!-- Main Content -->
         <div class="max-w-4xl mx-auto space-y-8">
@@ -70,6 +71,11 @@
                 <h2 class="text-2xl font-bold text-gray-900 flex items-center">
                     <i class="fas fa-list mr-2 text-amber-600"></i>
                     Requirements
+                    @if($requirements->count() > 0)
+                        <span class="ml-2 text-sm bg-amber-100 text-amber-800 px-3 py-1 rounded-full">
+                            {{ $requirements->count() }}
+                        </span>
+                    @endif
                 </h2>
                 @if($requirements->isEmpty())
                     <div class="text-center py-6 text-gray-600">
@@ -145,7 +151,12 @@
                             <!-- Replies -->
                             @if($requirement->replies->count() > 0)
                                 <div class="mt-6">
-                                    <h5 class="text-lg font-semibold text-gray-900 mb-3">Proposals</h5>
+                                    <h5 class="text-lg font-semibold text-gray-900 mb-3 flex items-center">
+                                        Proposals
+                                        <span class="ml-2 text-sm bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
+                                            {{ $requirement->replies->count() }}
+                                        </span>
+                                    </h5>
                                     @foreach($requirement->replies as $reply)
                                         <div class="bg-gray-50 rounded-2xl p-4 mb-3">
                                             <div class="flex items-center mb-2">
@@ -248,24 +259,13 @@
                     }, 300);
                 });
             }, 5000);
-
-            // Listen for new requirements and replies via Laravel Echo
-            Echo.channel('requirements')
-                .listen('.NewRequirementPosted', (e) => {
-                    Livewire.dispatch('refreshFeed');
-                    console.log('New requirement received:', e.requirement);
-                })
-                .listen('.NewReplyPosted', (e) => {
-                    Livewire.dispatch('refreshFeed');
-                    console.log('New reply received:', e.reply);
-                });
         });
 
-        document.addEventListener('livewire:load', function () {
+        document.addEventListener('livewire:init', function () {
             Livewire.on('alert', data => {
                 const notification = document.createElement('div');
-                notification.className = `fixed top-4 right-4 bg-${data.type === 'success' ? 'green' : 'red'}-500 text-white px-6 py-3 rounded-2xl shadow-lg z-50 flex items-center animate-slide-in`;
-                notification.innerHTML = `<i class="fas fa-${data.type === 'success' ? 'check' : 'exclamation'}-circle mr-2"></i>${data.message}`;
+                notification.className = `fixed top-4 right-4 bg-${data[0].type === 'success' ? 'green' : data[0].type === 'error' ? 'red' : 'blue'}-500 text-white px-6 py-3 rounded-2xl shadow-lg z-50 flex items-center animate-slide-in`;
+                notification.innerHTML = `<i class="fas fa-${data[0].type === 'success' ? 'check' : data[0].type === 'error' ? 'exclamation' : 'info'}-circle mr-2"></i>${data[0].message}`;
                 document.body.appendChild(notification);
 
                 setTimeout(function() {

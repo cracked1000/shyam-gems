@@ -67,9 +67,9 @@
                     </button>
                 </div>
 
-                @if (Route::has('password.request'))
+                @if (Route::has('forgot-password.show'))
                     <div class="text-center">
-                        <a class="text-sm text-[#00B4D8] hover:underline" href="{{ route('password.request') }}">
+                        <a class="text-sm text-[#00B4D8] hover:underline" href="{{ route('forgot-password.show') }}">
                             Forgot your password?
                         </a>
                     </div>

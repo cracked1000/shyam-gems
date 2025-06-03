@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 
 class RegisteredUserController extends Controller
 {
@@ -25,18 +26,32 @@ class RegisteredUserController extends Controller
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
             'username' => ['required', 'string', 'max:255', 'unique:users'],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
-            'role' => ['required', 'in:seller,client'], // Add role validation
+            'role' => ['required', 'in:seller,client'],
+            'telephone' => ['required', 'string', 'max:20'], // Changed from 'phone_number' to 'telephone'
+            'bio' => ['required', 'string', 'max:500'],
+            'experience' => ['required', 'integer', 'min:0'],
+            'profile_photo' => ['required', 'image', 'max:2048'], // Max 2MB
         ]);
 
-        $user = User::create([
-            'name' => trim($request->first_name . ' ' . $request->last_name), // Combine first_name and last_name for name
+        $userData = [
+            'name' => trim($request->first_name . ' ' . $request->last_name),
             'first_name' => $request->first_name,
             'last_name' => $request->last_name,
             'email' => $request->email,
             'username' => $request->username,
             'password' => Hash::make($request->password),
-            'role' => $request->role, // Use the role from the form
-        ]);
+            'role' => $request->role,
+            'telephone' => $request->telephone, // Changed from 'phone_number' to 'telephone'
+            'bio' => $request->bio,
+            'experience' => $request->experience,
+        ];
+
+        if ($request->hasFile('profile_photo')) {
+            $path = $request->file('profile_photo')->store('profile_photos', 'public');
+            $userData['profile_photo_path'] = $path;
+        }
+
+        $user = User::create($userData);
 
         event(new \Illuminate\Auth\Events\Registered($user));
 

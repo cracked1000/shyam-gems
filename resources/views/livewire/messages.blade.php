@@ -4,7 +4,8 @@
             <div class="absolute inset-0" style="background-image: radial-gradient(circle at 2px 2px, rgba(154, 130, 17, 0.1) 1px, transparent 0); background-size: 40px 40px;"></div>
         </div>
 
-        <div wire:loading.flex class="fixed inset-0 bg-black bg-opacity-50 z-50 items-center justify-center">
+        <!-- Loading overlay for non-polling actions only -->
+        <div wire:loading.flex wire:target="sendMessage,selectUser,deleteMessage,refreshMessages" class="fixed inset-0 bg-black bg-opacity-50 z-50 items-center justify-center">
             <div class="bg-white rounded-2xl p-6 shadow-2xl">
                 <div class="flex items-center space-x-3">
                     <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-amber-600"></div>
@@ -21,9 +22,15 @@
                 <h2 class="text-2xl font-bold text-gray-900 flex items-center justify-center">
                     Chats
                     @if($unreadCount > 0)
-                        <span class="ml-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">{{ $unreadCount }}</span>
+                        <span class="ml-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full animate-pulse">{{ $unreadCount }}</span>
                     @endif
                 </h2>
+                <!-- Enhanced Polling Status Indicator -->
+                <div class="mt-2 flex items-center justify-center space-x-2">
+                    <div id="polling-status" class="w-2 h-2 bg-green-500 rounded-full transition-all duration-300"></div>
+                    <span id="polling-text" class="text-xs text-gray-500 transition-all duration-300">Live updates</span>
+                </div>
+                <div id="last-update" class="text-xs text-gray-400 mt-1 opacity-0 transition-opacity duration-300"></div>
             </div>
 
             <button wire:click="startNewMessage" 
@@ -54,13 +61,25 @@
                 </div>
             </div>
 
+            <!-- Manual Refresh Button -->
+            <div class="mb-4 text-center">
+                <button wire:click="refreshMessages" 
+                        class="text-amber-600 hover:text-amber-700 text-sm font-medium transition-colors"
+                        title="Refresh messages"
+                        wire:loading.class="opacity-50">
+                    <i class="fas fa-sync-alt mr-1" wire:loading.class="animate-spin" wire:target="refreshMessages"></i>
+                    Refresh
+                </button>
+            </div>
+
             <div class="space-y-4">
                 @if($users && $users->count() > 0)
                     @foreach ($users as $user)
                         @if(isset($user->other_user))
                             <div class="flex items-center p-3 bg-gray-50 rounded-2xl hover:bg-amber-50 cursor-pointer transition-all duration-300 {{ $selectedUserId == $user->other_user->id ? 'bg-amber-100 border-2 border-amber-300' : '' }}" 
                                  wire:click="selectUser({{ $user->other_user->id }})"
-                                 wire:loading.class="opacity-50 cursor-not-allowed">
+                                 wire:loading.class="opacity-50 cursor-not-allowed"
+                                 wire:target="selectUser">
                                 <div class="relative">
                                     <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-amber-100 to-yellow-50 border-2 border-amber-200 flex items-center justify-center">
                                         @if($user->other_user->profile_photo_path)
@@ -73,9 +92,9 @@
                                     </div>
                                 </div>
                                 <div class="ml-3 flex-1">
-                                    <a href="{{ route('profile.show', $user->other_user->username) }}" class="text-lg font-semibold text-gray-900 hover:underline">
+                                    <p class="text-lg font-semibold text-gray-900">
                                         {{ $user->other_user->first_name ?? 'Unknown' }} {{ $user->other_user->last_name ?? '' }}
-                                    </a>
+                                    </p>
                                     <p class="text-sm text-gray-600">{{ $user->other_user->username ?? 'N/A' }}</p>
                                     @if(isset($user->last_message_preview))
                                         <p class="text-xs text-gray-500 truncate max-w-32">{{ $user->last_message_preview }}</p>
@@ -84,7 +103,7 @@
                                 <div class="text-sm text-gray-500 flex flex-col items-end">
                                     <i class="fas fa-comment-dots mr-1"></i>
                                     @if(isset($user->unread_count) && $user->unread_count > 0)
-                                        <span class="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full mt-1">
+                                        <span class="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full mt-1 animate-pulse">
                                             {{ $user->unread_count }}
                                         </span>
                                     @endif
@@ -114,6 +133,7 @@
             </div>
         </div>
 
+        <!-- Main content area - NO wire:poll here -->
         <div class="w-2/3 p-6 h-screen overflow-y-auto">
             @if($newMessageMode)
                 <div class="bg-white shadow-lg rounded-3xl p-8 border border-gray-100 h-full">
@@ -155,7 +175,8 @@
                             @foreach ($newMessageUsers as $user)
                                 <div class="flex items-center p-3 bg-gray-50 rounded-2xl hover:bg-amber-50 cursor-pointer transition-all duration-300" 
                                      wire:click="selectUser({{ $user->id }})"
-                                     wire:loading.class="opacity-50 cursor-not-allowed">
+                                     wire:loading.class="opacity-50 cursor-not-allowed"
+                                     wire:target="selectUser">
                                     <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-amber-100 to-yellow-50 border-2 border-amber-200 flex items-center justify-center">
                                         @if($user->profile_photo_path)
                                             <img src="{{ $user->profile_photo_url }}" alt="Profile" class="w-full h-full rounded-2xl object-cover">
@@ -166,12 +187,13 @@
                                         @endif
                                     </div>
                                     <div class="ml-3 flex-1">
-                                        <a href="{{ route('profile.show', $user->username) }}" class="text-lg font-semibold text-gray-900 hover:underline">
+                                        <p class="text-lg font-semibold text-gray-900">
                                             {{ $user->first_name ?? 'Unknown' }} {{ $user->last_name ?? '' }}
-                                        </a>
+                                        </p>
                                         <p class="text-sm text-gray-600">{{ $user->username ?? 'N/A' }}</p>
                                         @if($user->email)
                                             <p class="text-xs text-gray-500">{{ $user->email }}</p>
+                                        </p>
                                         @endif
                                     </div>
                                 </div>
@@ -206,43 +228,58 @@
                                 @endif
                             </div>
                             <div class="ml-4">
-                                <a href="{{ route('profile.show', $selectedUser->username) }}" class="text-2xl font-bold text-gray-900 hover:underline">
+                                <p class="text-2xl font-bold text-gray-900">
                                     {{ $selectedUser->first_name ?? 'Unknown' }} {{ $selectedUser->last_name ?? '' }}
-                                </a>
+                                </p>
                                 <p class="text-sm text-gray-600">{{ $selectedUser->username ?? 'N/A' }}</p>
                             </div>
                         </div>
-                        <button wire:click="$set('selectedUser', null)" 
-                                class="text-gray-500 hover:text-gray-700 transition-colors lg:hidden"
-                                type="button">
-                            <i class="fas fa-times text-xl"></i>
-                        </button>
+                        <div class="flex items-center space-x-3">
+                            <!-- Connection status indicator -->
+                            <div id="connection-status" class="flex items-center space-x-1">
+                                <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                                <span class="text-xs text-gray-500">Online</span>
+                            </div>
+                            <button wire:click="$set('selectedUser', null)" 
+                                    class="text-gray-500 hover:text-gray-700 transition-colors lg:hidden"
+                                    type="button">
+                                <i class="fas fa-times text-xl"></i>
+                            </button>
+                        </div>
                     </div>
 
                     <div class="flex-1 overflow-y-auto mb-6 space-y-4 p-4 bg-gray-50 rounded-2xl border border-gray-200" id="messages-container">
                         @if($conversationMessages && is_countable($conversationMessages) && count($conversationMessages) > 0)
                             @foreach ($conversationMessages as $message)
-                                <div class="flex {{ $message->sender_id === Auth::id() ? 'justify-end' : 'justify-start' }}">
-                                    <div class="max-w-xs lg:max-w-md p-3 rounded-2xl {{ $message->sender_id === Auth::id() ? 'bg-amber-100 text-amber-900' : 'bg-white text-gray-800' }} shadow-md relative group">
-                                        <p class="text-sm break-words">{!! nl2br(e($message->content)) !!}</p>
-                                        <div class="flex items-center justify-between mt-2">
-                                            <p class="text-xs text-gray-500">
-                                                {{ $message->created_at ? $message->created_at->diffForHumans() : 'Just now' }}
-                                            </p>
+                                <div class="flex {{ $message->sender_id === Auth::id() ? 'justify-end' : 'justify-start' }} message-item" 
+                                     data-message-id="{{ $message->id }}">
+                                    <div class="max-w-xs lg:max-w-md px-4 py-3 rounded-2xl {{ $message->sender_id === Auth::id() ? 'bg-gradient-to-br from-amber-500 to-yellow-500 text-white' : 'bg-white border border-gray-200 text-gray-900' }} shadow-sm relative group">
+                                        @if($message->sender_id === Auth::id())
+                                            <!-- Sent message - show delete option -->
+                                            <div class="absolute -left-8 top-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                                <button wire:click="deleteMessage({{ $message->id }})" 
+                                                        class="text-red-500 hover:text-red-700 text-sm p-1 rounded-full hover:bg-red-50 transition-colors"
+                                                        title="Delete message"
+                                                        onclick="return confirm('Are you sure you want to delete this message?')">
+                                                    <i class="fas fa-trash text-xs"></i>
+                                                </button>
+                                            </div>
+                                        @endif
+                                        
+                                        <div class="text-sm">
+                                            {!! $this->getFormattedContent($message->content) !!}
+                                        </div>
+                                        
+                                        <div class="text-xs {{ $message->sender_id === Auth::id() ? 'text-yellow-100' : 'text-gray-500' }} mt-2 flex items-center justify-between">
+                                            <span>{{ $message->created_at->format('g:i A') }}</span>
                                             @if($message->sender_id === Auth::id())
-                                                <div class="flex items-center space-x-1">
-                                                    @if(isset($message->is_read) && $message->is_read)
-                                                        <i class="fas fa-check-double text-blue-500 text-xs"></i>
+                                                <span class="flex items-center ml-2">
+                                                    @if($message->read_at)
+                                                        <i class="fas fa-check-double text-xs" title="Read"></i>
                                                     @else
-                                                        <i class="fas fa-check text-gray-400 text-xs"></i>
+                                                        <i class="fas fa-check text-xs" title="Sent"></i>
                                                     @endif
-                                                    <button wire:click="deleteMessage({{ $message->id }})" 
-                                                            class="opacity-0 group-hover:opacity-100 transition-opacity text-red-500 hover:text-red-700 ml-2"
-                                                            type="button"
-                                                            wire:confirm="Are you sure you want to delete this message?">
-                                                        <i class="fas fa-trash text-xs"></i>
-                                                    </button>
-                                                </div>
+                                                </span>
                                             @endif
                                         </div>
                                     </div>
@@ -250,45 +287,44 @@
                             @endforeach
                         @else
                             <div class="text-center py-12">
-                                <div class="w-20 h-20 mx-auto mb-4 rounded-3xl bg-gray-100 flex items-center justify-center">
-                                    <i class="fas fa-comments text-gray-400 text-3xl"></i>
+                                <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gray-100 flex items-center justify-center">
+                                    <i class="fas fa-comment text-gray-400 text-2xl"></i>
                                 </div>
-                                <h3 class="text-xl font-semibold text-gray-700 mb-2">No messages yet</h3>
-                                <p class="text-gray-500">Start the conversation with {{ $selectedUser->first_name ?? $selectedUser->username ?? 'this user' }}!</p>
+                                <p class="text-gray-600 text-lg">No messages yet</p>
+                                <p class="text-gray-500 text-sm mt-2">Start the conversation by sending a message!</p>
                             </div>
                         @endif
                     </div>
 
-                    <form wire:submit.prevent="sendMessage" class="flex-shrink-0">
-                        <div class="flex items-end space-x-3">
-                            <div class="flex-1">
-                                <textarea 
-                                    wire:model="messageContent"
-                                    rows="3"
-                                    maxlength="1000"
-                                    class="w-full px-4 py-3 border border-gray-200 rounded-2xl focus:border-amber-500 focus:ring-4 focus:ring-amber-100 transition-all duration-300 bg-gray-50/50 text-gray-900 placeholder-gray-500 resize-none"
-                                    placeholder="Type your message..."
-                                    wire:keydown.ctrl.enter="sendMessage"
-                                    wire:keydown.cmd.enter="sendMessage"
-                                ></textarea>
+                    <!-- Message input form -->
+                    <form wire:submit.prevent="sendMessage" class="mt-auto">
+                        <div class="flex space-x-3">
+                            <div class="flex-1 relative">
+                                <textarea wire:model.defer="messageContent" 
+                                         class="w-full px-4 py-3 pr-12 border border-gray-200 rounded-2xl focus:border-amber-500 focus:ring-4 focus:ring-amber-100 transition-all duration-300 bg-gray-50/50 text-gray-900 placeholder-gray-500 resize-none" 
+                                         placeholder="Type your message..." 
+                                         rows="2"
+                                         maxlength="1000"
+                                         @keydown.enter.prevent="$wire.sendMessage()"
+                                         @keydown.shift.enter.stop="$event.target.value += '\n'"
+                                         wire:loading.attr="disabled"
+                                         wire:target="sendMessage"></textarea>
+                                
+                                <!-- Character counter -->
+                                <div class="absolute bottom-2 right-12 text-xs text-gray-400">
+                                    <span x-data="{ count: $wire.entangle('messageContent').length || 0 }" 
+                                          x-text="count + '/1000'"
+                                          :class="count > 900 ? 'text-red-500' : count > 800 ? 'text-yellow-500' : 'text-gray-400'"></span>
+                                </div>
+                                
                                 @error('messageContent')
                                     <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
                                 @enderror
-                                <div class="flex justify-between items-center mt-1 px-1">
-                                    <span class="text-xs text-gray-400">
-                                        {{ strlen($messageContent ?? '') }}/1000 characters
-                                    </span>
-                                    <span class="text-xs text-gray-400">
-                                        Ctrl + Enter to send
-                                    </span>
-                                </div>
                             </div>
-                            <button 
-                                type="submit"
-                                class="bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-700 hover:to-yellow-700 text-white font-semibold px-6 py-3 rounded-2xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-                                wire:loading.attr="disabled"
-                                wire:target="sendMessage"
-                            >
+                            <button type="submit" 
+                                    class="bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-700 hover:to-yellow-700 text-white font-semibold px-6 py-3 rounded-2xl transition-all duration-300 transform hover:scale-[1.02] flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                                    wire:loading.attr="disabled"
+                                    wire:target="sendMessage">
                                 <div wire:loading.remove wire:target="sendMessage">
                                     <i class="fas fa-paper-plane"></i>
                                 </div>
@@ -298,35 +334,22 @@
                             </button>
                         </div>
                     </form>
-
-                    <!-- Echo Listener -->
-                    <script>
-                        document.addEventListener('DOMContentLoaded', function () {
-                            if (window.Echo) {
-                                window.Echo.channel('messages.' + @json(Auth::id()))
-                                    .listen('.MessageSent', (e) => {
-                                        console.log('New message received:', e);
-                                        @this.call('messageReceived', e);
-                                    });
-                            } else {
-                                console.error('Echo is not initialized');
-                            }
-                        });
-                    </script>
                 </div>
             @else
-                <div class="text-center h-full flex items-center justify-center bg-white shadow-lg rounded-3xl p-8 border border-gray-100">
-                    <div>
-                        <div class="w-32 h-32 mx-auto mb-6 rounded-3xl bg-gradient-to-br from-gray-100 to-gray-50 flex items-center justify-center border border-gray-200">
-                            <i class="fas fa-comments text-gray-400 text-4xl"></i>
+                <!-- Welcome screen when no user/conversation is selected -->
+                <div class="bg-white shadow-lg rounded-3xl p-8 border border-gray-100 h-full flex flex-col items-center justify-center">
+                    <div class="text-center">
+                        <div class="w-24 h-24 mx-auto mb-6 rounded-3xl bg-gradient-to-br from-amber-100 to-yellow-50 border border-amber-200 flex items-center justify-center">
+                            <i class="fas fa-comments text-4xl text-amber-600"></i>
                         </div>
-                        <h3 class="text-2xl font-bold text-gray-900 mb-3">Select a Chat</h3>
-                        <p class="text-gray-600 text-lg max-w-md mx-auto">Click a contact to start messaging or create a new message.</p>
+                        <h2 class="text-3xl font-bold text-gray-900 mb-4">Welcome to Messages</h2>
+                        <p class="text-gray-600 text-lg mb-8 max-w-md">
+                            Select a conversation from the sidebar to start chatting, or create a new message to begin a conversation with someone new.
+                        </p>
                         <button wire:click="startNewMessage" 
-                                class="mt-4 bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-700 hover:to-yellow-700 text-white font-semibold py-2 px-6 rounded-xl transition-all duration-300 transform hover:scale-105"
-                                type="button">
+                                class="bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-700 hover:to-yellow-700 text-white font-semibold py-3 px-6 rounded-2xl transition-all duration-300 transform hover:scale-[1.02] flex items-center justify-center mx-auto">
                             <i class="fas fa-plus mr-2"></i>
-                            Start New Chat
+                            Start New Conversation
                         </button>
                     </div>
                 </div>
@@ -334,137 +357,194 @@
         </div>
     </div>
 
-    @if (session()->has('success'))
-        <div class="fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-2xl shadow-lg z-50 flex items-center animate-slide-in">
-            <i class="fas fa-check-circle mr-2"></i>
-            {{ session('success') }}
-        </div>
-    @endif
-
-    @if (session()->has('error'))
-        <div class="fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-2xl shadow-lg z-50 flex items-center animate-slide-in">
-            <i class="fas fa-exclamation-circle mr-2"></i>
-            {{ session('error') }}
-        </div>
-    @endif
-
-    <style>
-        @keyframes slide-in { from { opacity: 0; transform: translateX(100%); } to { opacity: 1; transform: translateX(0); } }
-        @keyframes fade-out { from { opacity: 1; } to { opacity: 0; } }
-        .animate-slide-in { animation: slide-in 0.4s ease-out; }
-        .animate-fade-out { animation: fade-out 0.3s ease-out forwards; }
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: #f8fafc; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb { background: linear-gradient(to bottom, #d97706, #f59e0b); border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: linear-gradient(to bottom, #b45309, #d97706); }
-        * { transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); }
-        #messages-container { scroll-behavior: smooth; }
-        @media (max-width: 768px) {
-            .min-h-screen.flex { flex-direction: column; }
-            .w-1\/3, .w-2\/3 { width: 100%; }
-            .h-screen { height: auto; min-height: 50vh; }
-        }
-        input:focus, textarea:focus { box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1); }
-        button:hover { transform: translateY(-1px); }
-        button:active { transform: translateY(0); }
-        button:disabled { opacity: 0.7; transform: none; }
-    </style>
-
+    <!-- JavaScript for real-time polling and UI enhancements -->
     <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            setTimeout(function() {
-                const flashMessages = document.querySelectorAll('.animate-slide-in');
-                flashMessages.forEach(function(message) {
-                    message.classList.add('animate-fade-out');
-                    setTimeout(function() {
-                        message.remove();
-                    }, 300);
-                });
-            }, 5000);
+        document.addEventListener('DOMContentLoaded', function() {
+            let pollingInterval;
+            let isPolling = false;
+            const POLLING_INTERVAL = {{ $pollingInterval }};
 
-            function scrollToBottom() {
-                const messagesContainer = document.getElementById('messages-container');
-                if (messagesContainer) {
-                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            // Start polling
+            function startPolling() {
+                if (pollingInterval) {
+                    clearInterval(pollingInterval);
+                }
+                
+                pollingInterval = setInterval(() => {
+                    if (!isPolling) {
+                        isPolling = true;
+                        updatePollingStatus('polling');
+                        
+                        @this.backgroundPoll().then(result => {
+                            isPolling = false;
+                            if (result && result.hasUpdates) {
+                                updatePollingStatus('updated');
+                            } else {
+                                updatePollingStatus('connected');
+                            }
+                            updateLastUpdateTime();
+                        }).catch(error => {
+                            isPolling = false;
+                            updatePollingStatus('error');
+                            console.error('Polling error:', error);
+                        });
+                    }
+                }, POLLING_INTERVAL);
+            }
+
+            // Update polling status indicator
+            function updatePollingStatus(status) {
+                const statusElement = document.getElementById('polling-status');
+                const textElement = document.getElementById('polling-text');
+                
+                if (!statusElement || !textElement) return;
+
+                switch(status) {
+                    case 'connected':
+                        statusElement.className = 'w-2 h-2 bg-green-500 rounded-full transition-all duration-300';
+                        textElement.textContent = 'Live updates';
+                        break;
+                    case 'polling':
+                        statusElement.className = 'w-2 h-2 bg-blue-500 rounded-full transition-all duration-300 animate-pulse';
+                        textElement.textContent = 'Checking...';
+                        break;
+                    case 'updated':
+                        statusElement.className = 'w-2 h-2 bg-amber-500 rounded-full transition-all duration-300 animate-bounce';
+                        textElement.textContent = 'Updated';
+                        setTimeout(() => updatePollingStatus('connected'), 2000);
+                        break;
+                    case 'error':
+                        statusElement.className = 'w-2 h-2 bg-red-500 rounded-full transition-all duration-300';
+                        textElement.textContent = 'Connection issue';
+                        break;
                 }
             }
 
-            window.addEventListener('message-sent', function(event) {
+            // Update last update timestamp
+            function updateLastUpdateTime() {
+                const lastUpdateElement = document.getElementById('last-update');
+                if (lastUpdateElement) {
+                    const now = new Date();
+                    lastUpdateElement.textContent = `Last update: ${now.toLocaleTimeString()}`;
+                    lastUpdateElement.classList.remove('opacity-0');
+                    lastUpdateElement.classList.add('opacity-100');
+                    
+                    setTimeout(() => {
+                        lastUpdateElement.classList.remove('opacity-100');
+                        lastUpdateElement.classList.add('opacity-0');
+                    }, 3000);
+                }
+            }
+
+            // Scroll to bottom of messages
+            function scrollToBottom() {
+                const container = document.getElementById('messages-container');
+                if (container) {
+                    container.scrollTop = container.scrollHeight;
+                }
+            }
+
+            // Auto-scroll on new messages
+            window.addEventListener('scrollToBottom', scrollToBottom);
+            
+            // Listen for Livewire events
+            window.addEventListener('newMessageReceived', () => {
                 scrollToBottom();
-                const notification = document.createElement('div');
-                notification.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded-xl shadow-lg z-50 animate-slide-in';
-                notification.innerHTML = `<i class="fas fa-check mr-2"></i>Message sent to ${event.detail.recipient}!`;
-                document.body.appendChild(notification);
-                setTimeout(function() {
-                    notification.classList.add('animate-fade-out');
-                    setTimeout(function() {
-                        notification.remove();
-                    }, 300);
-                }, 3000);
+                updatePollingStatus('updated');
             });
 
-            window.addEventListener('scrollToBottom', function() {
+            window.addEventListener('messagesUpdated', () => {
+                updatePollingStatus('updated');
+            });
+
+            window.addEventListener('messagesRefreshed', () => {
+                updatePollingStatus('updated');
                 scrollToBottom();
             });
 
-            window.addEventListener('show-success', function(event) {
-                const notification = document.createElement('div');
-                notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-2xl shadow-lg z-50 flex items-center animate-slide-in';
-                notification.innerHTML = `<i class="fas fa-check-circle mr-2"></i>${event.detail.message}`;
-                document.body.appendChild(notification);
-                setTimeout(function() {
-                    notification.classList.add('animate-fade-out');
-                    setTimeout(function() {
-                        notification.remove();
-                    }, 300);
-                }, 3000);
-            });
+            // Start polling when page loads
+            startPolling();
+            updatePollingStatus('connected');
 
-            window.addEventListener('show-error', function(event) {
-                const notification = document.createElement('div');
-                notification.className = 'fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-2xl shadow-lg z-50 flex items-center animate-slide-in';
-                notification.innerHTML = `<i class="fas fa-exclamation-circle mr-2"></i>${event.detail.message}`;
-                document.body.appendChild(notification);
-                setTimeout(function() {
-                    notification.classList.add('animate-fade-out');
-                    setTimeout(function() {
-                        notification.remove();
-                    }, 300);
-                }, 3000);
-            });
-
-            setTimeout(scrollToBottom, 100);
-
-            document.addEventListener('keydown', function(e) {
-                if (e.key === 'Escape') {
-                    @this.set('newMessageMode', false);
+            // Handle visibility change to pause/resume polling
+            document.addEventListener('visibilitychange', function() {
+                if (document.hidden) {
+                    if (pollingInterval) {
+                        clearInterval(pollingInterval);
+                    }
+                    updatePollingStatus('paused');
+                } else {
+                    startPolling();
+                    updatePollingStatus('connected');
                 }
             });
 
-            let searchTimeout;
-            const searchInputs = document.querySelectorAll('input[wire\\:model\\.live\\.debounce]');
-            searchInputs.forEach(function(input) {
-                input.addEventListener('input', function() {
-                    clearTimeout(searchTimeout);
-                    searchTimeout = setTimeout(function() {
-                        input.style.borderColor = '#f59e0b';
-                        setTimeout(function() {
-                            input.style.borderColor = '';
-                        }, 200);
-                    }, 100);
-                });
+            // Cleanup on page unload
+            window.addEventListener('beforeunload', function() {
+                if (pollingInterval) {
+                    clearInterval(pollingInterval);
+                }
             });
-        });
 
-        document.addEventListener('livewire:initialized', function () {
-            Livewire.hook('morph.updated', () => {
+            // Auto-focus message input when user is selected
+            window.addEventListener('userSelected', () => {
                 setTimeout(() => {
-                    const messagesContainer = document.getElementById('messages-container');
-                    if (messagesContainer) {
-                        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                    const messageInput = document.querySelector('textarea[wire\\:model\\:defer="messageContent"]');
+                    if (messageInput) {
+                        messageInput.focus();
                     }
-                }, 50);
+                    scrollToBottom();
+                }, 100);
             });
+
+            // Initial scroll to bottom if messages exist
+            setTimeout(scrollToBottom, 100);
         });
     </script>
+
+    @push('styles')
+        <style>
+            /* Custom scrollbar for messages */
+            #messages-container::-webkit-scrollbar {
+                width: 6px;
+            }
+            
+            #messages-container::-webkit-scrollbar-track {
+                background: #f3f4f6;
+                border-radius: 10px;
+            }
+            
+            #messages-container::-webkit-scrollbar-thumb {
+                background: #d1d5db;
+                border-radius: 10px;
+            }
+            
+            #messages-container::-webkit-scrollbar-thumb:hover {
+                background: #9ca3af;
+            }
+
+            /* Message animation */
+            .message-item {
+                animation: messageSlideIn 0.3s ease-out;
+            }
+
+            @keyframes messageSlideIn {
+                from {
+                    opacity: 0;
+                    transform: translateY(10px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+
+            /* Responsive message bubbles */
+            @media (max-width: 768px) {
+                .max-w-xs {
+                    max-width: 80%;
+                }
+            }
+        </style>
+    @endpush
 </div>

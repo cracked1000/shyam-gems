@@ -14,6 +14,8 @@ use App\Livewire\AccountSettings;
 use App\Livewire\Feed;
 use App\Livewire\Messages;
 use App\Livewire\Profile;
+use App\Livewire\ForgotPassword;
+use App\Livewire\ResetPassword;
 use Illuminate\Support\Facades\Route;
 
 // Home Route
@@ -28,6 +30,14 @@ Route::middleware('guest')->group(function () {
     
     Route::post('/login', [AuthenticatedSessionController::class, 'store'])
         ->name('login.store');
+
+    // Forgot Password Routes
+    Route::get('/forgot-password', ForgotPassword::class)
+        ->name('forgot-password.show');
+
+    // Reset Password Route
+    Route::get('/reset-password/{token}', ResetPassword::class)
+        ->name('password.reset');
 
     // Seller Registration Routes
     Route::get('/register/seller', function () {

@@ -20,7 +20,9 @@ class SellerDashboard extends Component
     public $image;
     public $feeds = [];
     public $messages = [];
-    public $selectedImage = null; // For image preview
+    public $selectedImage = null;
+    public $confirmingGemDeletion = false;
+    public $gemIdToDelete = null;
 
     protected $rules = [
         'name' => 'required|string|max:255',
@@ -41,7 +43,7 @@ class SellerDashboard extends Component
 
     public function loadGems()
     {
-        $this->gems = Gem::where('seller_id', $this->user->id)->get();
+        $this->gems = Gem::forSeller($this->user->id)->get(); // Use scope with string casting
     }
 
     public function loadSampleData()
@@ -62,12 +64,13 @@ class SellerDashboard extends Component
         $this->validate();
 
         $imagePath = $this->image->store('gems', 'public');
+        Log::info('Gem image stored at: ' . $imagePath);
 
         Gem::create([
             'name' => $this->name,
             'description' => $this->description,
             'image' => $imagePath,
-            'seller_id' => $this->user->id,
+            'seller_id' => (string) $this->user->id, // Explicitly cast to string
         ]);
 
         $this->reset(['name', 'description', 'image']);
@@ -75,29 +78,44 @@ class SellerDashboard extends Component
         session()->flash('message', 'Gem added successfully!');
     }
 
+    public function confirmDelete($gemId)
+    {
+        $this->confirmingGemDeletion = true;
+        $this->gemIdToDelete = $gemId;
+    }
+
+    public function cancelDelete()
+    {
+        $this->confirmingGemDeletion = false;
+        $this->gemIdToDelete = null;
+    }
+
     public function deleteGem($gemId)
     {
-        $gem = Gem::where('seller_id', $this->user->id)->where('id', $gemId)->first(); // Use 'id' for relational DB
+        $gem = Gem::where('_id', $gemId)->where('seller_id', (string) $this->user->id)->first();
         if ($gem) {
             if ($gem->image && Storage::disk('public')->exists($gem->image)) {
                 Storage::disk('public')->delete($gem->image);
+                Log::info('Deleted gem image: ' . $gem->image);
             }
             $gem->delete();
             $this->loadGems();
+            $this->cancelDelete();
             session()->flash('message', 'Gem deleted successfully!');
         } else {
+            $this->cancelDelete();
             session()->flash('message', 'Gem not found or unauthorized to delete!');
         }
     }
 
     public function showImage($imagePath)
     {
-        $this->selectedImage = $imagePath; // Set the selected image for preview
+        $this->selectedImage = $imagePath;
     }
 
     public function closeImage()
     {
-        $this->selectedImage = null; // Close the preview
+        $this->selectedImage = null;
     }
 
     public function render()
@@ -114,6 +132,8 @@ class SellerDashboard extends Component
             'feeds' => $this->feeds,
             'messages' => $this->messages,
             'selectedImage' => $this->selectedImage,
+            'confirmingGemDeletion' => $this->confirmingGemDeletion,
+            'gemIdToDelete' => $this->gemIdToDelete,
         ])->layout('components.layouts.app')->title('Seller Dashboard');
     }
 }

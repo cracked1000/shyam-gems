@@ -30,7 +30,17 @@ class AuthenticatedSessionController extends Controller
             }
 
             $request->session()->put('2fa_passed', true); // Mark 2FA as passed if not enabled
-            return redirect()->intended($user->getDashboardRouteName());
+            
+            // Get the dashboard route name
+            $dashboardRoute = $user->getDashboardRouteName();
+            
+            // Use redirect()->intended() with route() helper to get the proper URL
+            if ($dashboardRoute && \Illuminate\Support\Facades\Route::has($dashboardRoute)) {
+                return redirect()->intended(route($dashboardRoute));
+            }
+            
+            // Fallback to dashboard route if specific dashboard route doesn't exist
+            return redirect()->intended(route('dashboard'));
         }
 
         return back()->withErrors([

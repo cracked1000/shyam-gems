@@ -169,11 +169,14 @@
                                 <span>Register</span>
                             </a>
                         @else
-                            <div class="flex items-center space-x-1">
-                                <a href="{{ route('home') }}" class="nav-item text-gray-700 hover:text-yellow-600 px-4 py-2.5 rounded-lg text-sm font-medium flex items-center space-x-2 transition-all duration-300">
-                                    <i class="fas fa-home"></i>
-                                    <span>Home</span>
-                                </a>
+                            <!-- Always show Home link for authenticated users -->
+                            <a href="{{ route('home') }}" class="nav-item text-gray-700 hover:text-yellow-600 px-4 py-2.5 rounded-lg text-sm font-medium flex items-center space-x-2 transition-all duration-300">
+                                <i class="fas fa-home"></i>
+                                <span>Home</span>
+                            </a>
+                            
+                            <!-- Only show these links if email is verified -->
+                            @if(auth()->user()->hasVerifiedEmail())
                                 <a href="{{ route('dashboard') }}" class="nav-item text-gray-700 hover:text-yellow-600 px-4 py-2.5 rounded-lg text-sm font-medium flex items-center space-x-2 transition-all duration-300">
                                     <i class="fas fa-tachometer-alt"></i>
                                     <span>Dashboard</span>
@@ -188,69 +191,92 @@
                                     <a href="{{ route('messages.index') }}" class="nav-item text-gray-700 hover:text-yellow-600 px-4 py-2.5 rounded-lg text-sm font-medium flex items-center space-x-2 transition-all duration-300 relative">
                                         <i class="fas fa-envelope"></i>
                                         <span>Messages</span>
-                                        <span class="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">3</span>
+                                        
                                     </a>
                                 @endif
-                            </div>
+                            @endif
                         @endguest
                     </div>
 
                     <!-- User Profile & Logout (Desktop) -->
                     @auth
                         <div class="hidden lg:flex items-center space-x-4">
-                            <div class="relative">
-                                <button onclick="toggleProfileDropdown()" class="flex items-center space-x-3 bg-gradient-to-r from-yellow-50 to-yellow-100 hover:from-yellow-100 hover:to-yellow-200 px-4 py-2.5 rounded-full border border-yellow-200 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-yellow-300">
-                                    <div class="flex items-center space-x-2">
-                                        @if(Auth::user()->profile_photo_path && \Illuminate\Support\Facades\Storage::exists(Auth::user()->profile_photo_path))
-                                            <img src="{{ \Illuminate\Support\Facades\Storage::url(Auth::user()->profile_photo_path) }}" alt="Profile Photo" class="h-8 w-8 rounded-full object-cover border-2 border-yellow-300">
-                                        @else
-                                            <div class="w-8 h-8 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-md">
-                                                @if(Auth::user()->role === 'seller')
-                                                    S
-                                                @elseif(Auth::user()->role === 'client')
-                                                    C
-                                                @else
-                                                    {{ strtoupper(substr(Auth::user()->first_name ?? Auth::user()->name ?? 'U', 0, 1)) }}
-                                                @endif
+                            @if(auth()->user()->hasVerifiedEmail())
+                                <!-- Verified User Profile Dropdown -->
+                                <div class="relative">
+                                    <button onclick="toggleProfileDropdown()" class="flex items-center space-x-3 bg-gradient-to-r from-yellow-50 to-yellow-100 hover:from-yellow-100 hover:to-yellow-200 px-4 py-2.5 rounded-full border border-yellow-200 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-yellow-300">
+                                        <div class="flex items-center space-x-2">
+                                            @if(Auth::user()->profile_photo_path && \Illuminate\Support\Facades\Storage::exists(Auth::user()->profile_photo_path))
+                                                <img src="{{ \Illuminate\Support\Facades\Storage::url(Auth::user()->profile_photo_path) }}" alt="Profile Photo" class="h-8 w-8 rounded-full object-cover border-2 border-yellow-300">
+                                            @else
+                                                <div class="w-8 h-8 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-md">
+                                                    @if(Auth::user()->role === 'seller')
+                                                        S
+                                                    @elseif(Auth::user()->role === 'client')
+                                                        C
+                                                    @else
+                                                        {{ strtoupper(substr(Auth::user()->first_name ?? Auth::user()->name ?? 'U', 0, 1)) }}
+                                                    @endif
+                                                </div>
+                                            @endif
+                                            <div class="text-left">
+                                                <p class="text-gray-700 font-medium text-sm">{{ Auth::user()->first_name ?? Auth::user()->name ?? 'User' }}</p>
+                                                <p class="text-gray-500 text-xs capitalize">{{ Auth::user()->role ?? 'Member' }}</p>
                                             </div>
+                                        </div>
+                                        <i class="fas fa-chevron-down text-gray-400 text-xs"></i>
+                                    </button>
+                                    
+                                    <!-- Profile Dropdown -->
+                                    <div id="profileDropdown" class="profile-dropdown absolute right-0 top-full mt-2 w-64 bg-white rounded-xl shadow-2xl border border-gray-100 py-2 z-50">
+                                        <div class="px-4 py-3 border-b border-gray-100">
+                                            <p class="text-sm font-semibold text-gray-800">{{ Auth::user()->first_name ?? Auth::user()->name ?? 'User' }} {{ Auth::user()->last_name ?? '' }}</p>
+                                            <p class="text-xs text-gray-500">{{ Auth::user()->email }}</p>
+                                        </div>
+                                        @if(Route::has('profile.edit-settings'))
+                                            <a href="{{ route('profile.edit-settings') }}" class="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-200">
+                                                <i class="fas fa-user mr-3 text-gray-400"></i>
+                                                <span>Profile Settings</span>
+                                            </a>
                                         @endif
-                                        <div class="text-left">
-                                            <p class="text-gray-700 font-medium text-sm">{{ Auth::user()->first_name ?? Auth::user()->name ?? 'User' }}</p>
-                                            <p class="text-gray-500 text-xs capitalize">{{ Auth::user()->role ?? 'Member' }}</p>
+                                        @if(Route::has('account.edit'))
+                                            <a href="{{ route('account.edit') }}" class="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-200">
+                                                <i class="fas fa-cog mr-3 text-gray-400"></i>
+                                                <span>Account Settings</span>
+                                            </a>
+                                        @endif
+                                        <div class="border-t border-gray-100 mt-2 pt-2">
+                                            <form action="{{ route('logout') }}" method="POST" class="w-full">
+                                                @csrf
+                                                <button type="submit" class="flex items-center w-full px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition-colors duration-200">
+                                                    <i class="fas fa-sign-out-alt mr-3"></i>
+                                                    <span>Logout</span>
+                                                </button>
+                                            </form>
                                         </div>
                                     </div>
-                                    <i class="fas fa-chevron-down text-gray-400 text-xs"></i>
-                                </button>
-                                
-                                <!-- Profile Dropdown -->
-                                <div id="profileDropdown" class="profile-dropdown absolute right-0 top-full mt-2 w-64 bg-white rounded-xl shadow-2xl border border-gray-100 py-2 z-50">
-                                    <div class="px-4 py-3 border-b border-gray-100">
-                                        <p class="text-sm font-semibold text-gray-800">{{ Auth::user()->first_name ?? Auth::user()->name ?? 'User' }} {{ Auth::user()->last_name ?? '' }}</p>
-                                        <p class="text-xs text-gray-500">{{ Auth::user()->email }}</p>
+                                </div>
+                            @else
+                                <!-- Unverified User - Simple Profile Display with Logout -->
+                                <div class="flex items-center space-x-3 bg-gradient-to-r from-red-50 to-red-100 px-4 py-2.5 rounded-full border border-red-200">
+                                    <div class="w-8 h-8 bg-gradient-to-br from-red-400 to-red-600 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-md">
+                                        {{ strtoupper(substr(Auth::user()->first_name ?? Auth::user()->name ?? 'U', 0, 1)) }}
                                     </div>
-                                    @if(Route::has('profile.edit-settings'))
-                                        <a href="{{ route('profile.edit-settings') }}" class="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-200">
-                                            <i class="fas fa-user mr-3 text-gray-400"></i>
-                                            <span>Profile Settings</span>
-                                        </a>
-                                    @endif
-                                    @if(Route::has('account.edit'))
-                                        <a href="{{ route('account.edit') }}" class="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-200">
-                                            <i class="fas fa-cog mr-3 text-gray-400"></i>
-                                            <span>Account Settings</span>
-                                        </a>
-                                    @endif
-                                    <div class="border-t border-gray-100 mt-2 pt-2">
-                                        <form action="{{ route('logout') }}" method="POST" class="w-full">
-                                            @csrf
-                                            <button type="submit" class="flex items-center w-full px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition-colors duration-200">
-                                                <i class="fas fa-sign-out-alt mr-3"></i>
-                                                <span>Logout</span>
-                                            </button>
-                                        </form>
+                                    <div class="text-left">
+                                        <p class="text-gray-700 font-medium text-sm">{{ Auth::user()->first_name ?? Auth::user()->name ?? 'User' }}</p>
+                                        <p class="text-red-600 text-xs">Email not verified</p>
                                     </div>
                                 </div>
-                            </div>
+                                
+                                <!-- Logout Button for Unverified Users -->
+                                <form action="{{ route('logout') }}" method="POST" class="inline-block">
+                                    @csrf
+                                    <button type="submit" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2.5 rounded-full text-sm font-medium flex items-center space-x-2 transition-all duration-300">
+                                        <i class="fas fa-sign-out-alt"></i>
+                                        <span>Logout</span>
+                                    </button>
+                                </form>
+                            @endif
                         </div>
                     @endauth
 
@@ -277,34 +303,8 @@
                         </a>
                     </div>
                 @else
-                    <div class="space-y-1">
-                        <a href="{{ route('home') }}" class="block text-gray-700 hover:text-yellow-600 hover:bg-yellow-50 p-3 rounded-lg transition-all duration-300 flex items-center space-x-3">
-                            <i class="fas fa-home"></i>
-                            <span>Home</span>
-                        </a>
-                        <a href="{{ route('dashboard') }}" class="block text-gray-700 hover:text-yellow-600 hover:bg-yellow-50 p-3 rounded-lg transition-all duration-300 flex items-center space-x-3">
-                            <i class="fas fa-tachometer-alt"></i>
-                            <span>Dashboard</span>
-                        </a>
-                        @if(Route::has('feed'))
-                            <a href="{{ route('feed') }}" class="block text-gray-700 hover:text-yellow-600 hover:bg-yellow-50 p-3 rounded-lg transition-all duration-300 flex items-center space-x-3">
-                                <i class="fas fa-rss"></i>
-                                <span>Feed</span>
-                            </a>
-                        @endif
-                        @if(Route::has('messages.index'))
-                            <a href="{{ route('messages.index') }}" class="block text-gray-700 hover:text-yellow-600 hover:bg-yellow-50 p-3 rounded-lg transition-all duration-300 flex items-center justify-between">
-                                <div class="flex items-center space-x-3">
-                                    <i class="fas fa-envelope"></i>
-                                    <span>Messages</span>
-                                </div>
-                                <span class="bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">3</span>
-                            </a>
-                        @endif
-                    </div>
-                    
                     <!-- Mobile User Profile -->
-                    <div class="mt-6 pt-6 border-t border-gray-200">
+                    <div class="mb-6 pb-6 border-b border-gray-200">
                         <div class="flex items-center space-x-3 mb-4">
                             @if(Auth::user()->profile_photo_path && \Illuminate\Support\Facades\Storage::exists(Auth::user()->profile_photo_path))
                                 <img src="{{ \Illuminate\Support\Facades\Storage::url(Auth::user()->profile_photo_path) }}" alt="Profile Photo" class="h-12 w-12 rounded-full object-cover border-2 border-yellow-300">
@@ -322,9 +322,48 @@
                             <div>
                                 <p class="font-semibold text-gray-800">{{ Auth::user()->first_name ?? Auth::user()->name ?? 'User' }}</p>
                                 <p class="text-sm text-gray-600 capitalize">{{ Auth::user()->role ?? 'Member' }}</p>
+                                @if(!auth()->user()->hasVerifiedEmail())
+                                    <p class="text-xs text-red-600">Email not verified</p>
+                                @endif
                             </div>
                         </div>
-                        <div class="space-y-1">
+                    </div>
+
+                    <!-- Mobile Navigation Links -->
+                    <div class="space-y-1 mb-6">
+                        <!-- Always show Home for authenticated users -->
+                        <a href="{{ route('home') }}" class="block text-gray-700 hover:text-yellow-600 hover:bg-yellow-50 p-3 rounded-lg transition-all duration-300 flex items-center space-x-3">
+                            <i class="fas fa-home"></i>
+                            <span>Home</span>
+                        </a>
+                        
+                        <!-- Only show these if email is verified -->
+                        @if(auth()->user()->hasVerifiedEmail())
+                            <a href="{{ route('dashboard') }}" class="block text-gray-700 hover:text-yellow-600 hover:bg-yellow-50 p-3 rounded-lg transition-all duration-300 flex items-center space-x-3">
+                                <i class="fas fa-tachometer-alt"></i>
+                                <span>Dashboard</span>
+                            </a>
+                            @if(Route::has('feed'))
+                                <a href="{{ route('feed') }}" class="block text-gray-700 hover:text-yellow-600 hover:bg-yellow-50 p-3 rounded-lg transition-all duration-300 flex items-center space-x-3">
+                                    <i class="fas fa-rss"></i>
+                                    <span>Feed</span>
+                                </a>
+                            @endif
+                            @if(Route::has('messages.index'))
+                                <a href="{{ route('messages.index') }}" class="block text-gray-700 hover:text-yellow-600 hover:bg-yellow-50 p-3 rounded-lg transition-all duration-300 flex items-center justify-between">
+                                    <div class="flex items-center space-x-3">
+                                        <i class="fas fa-envelope"></i>
+                                        <span>Messages</span>
+                                    </div>
+                                    <span class="bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">3</span>
+                                </a>
+                            @endif
+                        @endif
+                    </div>
+                    
+                    <!-- Mobile Profile Settings (Only for verified users) -->
+                    @if(auth()->user()->hasVerifiedEmail())
+                        <div class="space-y-1 mb-6 pt-6 border-t border-gray-200">
                             @if(Route::has('profile.edit-settings'))
                                 <a href="{{ route('profile.edit-settings') }}" class="block text-gray-700 hover:text-yellow-600 hover:bg-yellow-50 p-3 rounded-lg transition-all duration-300 flex items-center space-x-3">
                                     <i class="fas fa-user"></i>
@@ -337,15 +376,17 @@
                                     <span>Account Settings</span>
                                 </a>
                             @endif
-                            <form action="{{ route('logout') }}" method="POST" class="w-full">
-                                @csrf
-                                <button type="submit" class="w-full text-left text-red-600 hover:bg-red-50 p-3 rounded-lg transition-all duration-300 flex items-center space-x-3">
-                                    <i class="fas fa-sign-out-alt"></i>
-                                    <span>Logout</span>
-                                </button>
-                            </form>
                         </div>
-                    </div>
+                    @endif
+                    
+                    <!-- Logout Button -->
+                    <form action="{{ route('logout') }}" method="POST" class="w-full">
+                        @csrf
+                        <button type="submit" class="w-full text-left text-red-600 hover:bg-red-50 p-3 rounded-lg transition-all duration-300 flex items-center space-x-3">
+                            <i class="fas fa-sign-out-alt"></i>
+                            <span>Logout</span>
+                        </button>
+                    </form>
                 @endguest
             </div>
         </div>

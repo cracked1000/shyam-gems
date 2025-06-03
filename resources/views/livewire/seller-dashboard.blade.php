@@ -15,7 +15,7 @@
                     <div class="hidden md:block">
                         <div class="w-24 h-24 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
                             @if(Auth::check() && $user->profile_photo_path)
-                                <img src="{{ $user->profile_photo_url }}" alt="Profile" class="w-20 h-20 rounded-full object-cover border-4 border-white/30">
+                                <img src="{{ asset('storage/' . $user->profile_photo_path) }}" alt="Profile" class="w-20 h-20 rounded-full object-cover border-4 border-white/30">
                             @else
                                 <svg class="w-12 h-12 text-white" fill="currentColor" viewBox="0 0 20 20">
                                     <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path>
@@ -34,7 +34,7 @@
                     <div class="text-center mb-6">
                         <div class="relative inline-block">
                             @if(Auth::check() && $user->profile_photo_path)
-                                <img src="{{ $user->profile_photo_url }}" alt="Profile" class="w-24 h-24 rounded-full object-cover mx-auto border-4 border-[#9a8211]/20">
+                                <img src="{{ asset('storage/' . $user->profile_photo_path) }}" alt="Profile" class="w-24 h-24 rounded-full object-cover mx-auto border-4 border-[#9a8211]/20">
                             @else
                                 <div class="w-24 h-24 bg-gradient-to-br from-[#9a8211]/20 to-[#9a8211]/10 rounded-full flex items-center justify-center mx-auto">
                                     <svg class="w-12 h-12 text-[#9a8211]" fill="currentColor" viewBox="0 0 20 20">
@@ -63,7 +63,7 @@
                                 <svg class="w-5 h-5 text-[#9a8211] mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path>
                                 </svg>
-                                <span class="text-gray-700">{{ $user->telephone ?? 'Not provided' }}</span>
+                                <span class="text-gray-700">{{ $user->phone_number ?? 'Not provided' }}</span>
                             </div>
 
                             @if($user->bio)
@@ -79,7 +79,7 @@
                                     </svg>
                                     <div>
                                         <p class="text-xs text-gray-500 uppercase tracking-wide">Experience</p>
-                                        <p class="text-gray-700 font-medium">{{ $user->experience }}</p>
+                                        <p class="text-gray-700 font-medium">{{ $user->experience }} years</p>
                                     </div>
                                 </div>
                             @endif
@@ -89,8 +89,6 @@
                             <p class="text-red-600">User not authenticated</p>
                         </div>
                     @endif
-
-                    
                 </div>
             </div>
 
@@ -99,8 +97,15 @@
                 <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
                     <!-- Header -->
                     <div class="bg-gradient-to-r from-[#9a8211]/10 to-[#9a8211]/5 px-8 py-6 border-b border-gray-100">
-                        <h3 class="text-2xl font-bold text-gray-900 mb-2">Your Gem Collection</h3>
-                        <p class="text-gray-600">Showcase your precious stones to the world</p>
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h3 class="text-2xl font-bold text-gray-900 mb-2">Your Gem Collection</h3>
+                                <p class="text-gray-600">Showcase your precious stones to the world</p>
+                            </div>
+                            <div class="bg-[#9a8211]/10 px-3 py-1 rounded-full">
+                                <span class="text-[#9a8211] font-semibold text-sm">{{ count($gems) }} {{ Str::plural('Gem', count($gems)) }}</span>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="p-8">
@@ -123,7 +128,7 @@
                                     
                                     <div>
                                         <label for="image" class="block text-sm font-semibold text-gray-700 mb-2">Gem Image</label>
-                                        <input id="image" type="file" class="w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm focus:ring-2 focus:ring-[#9a8211] focus:border-[#9a8211] transition-all duration-200 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-[#9a8211]/10 file:text-[#9a8211] hover:file:bg-[#9a8211]/20" wire:model="image" required />
+                                        <input id="image" type="file" class="w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm focus:ring-2 focus:ring-[#9a8211] focus:border-[#9a8211] transition-all duration-200 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-[#9a8211]/10 file:text-[#9a8211] hover:file:bg-[#9a8211]/20" wire:model="image" accept="image/*" required />
                                         @error('image') <span class="text-red-500 text-sm mt-1 block">{{ $message }}</span> @enderror
                                     </div>
                                 </div>
@@ -149,7 +154,15 @@
                                 <div class="group relative bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2">
                                     <!-- Image Container with Click Event -->
                                     <div class="relative aspect-square overflow-hidden cursor-pointer" wire:click="showImage('{{ asset('storage/' . $gem->image) }}')">
-                                        <img src="{{ asset('storage/' . $gem->image) }}" alt="{{ $gem->name }}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500">
+                                        @if($gem->image && Storage::disk('public')->exists($gem->image))
+                                            <img src="{{ asset('storage/' . $gem->image) }}" alt="{{ $gem->name }}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500">
+                                        @else
+                                            <div class="w-full h-full bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center">
+                                                <svg class="w-16 h-16 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                                </svg>
+                                            </div>
+                                        @endif
                                         
                                         <!-- Gradient Overlay -->
                                         <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
@@ -160,8 +173,12 @@
                                             <p class="text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-200 line-clamp-3">{{ $gem->description }}</p>
                                         </div>
                                         
-                                        <!-- Delete Button -->
-                                        <button wire:click.prevent="deleteGem({{ $gem->id }})" class="absolute top-4 right-4 w-10 h-10 bg-red-500 hover:bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center shadow-lg hover:shadow-xl transform hover:scale-110">
+                                        <!-- Delete Button with Confirmation -->
+                                        <button 
+                                            wire:click.stop="confirmDelete({{ $gem->id }})" 
+                                            class="absolute top-4 right-4 w-10 h-10 bg-red-500 hover:bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center shadow-lg hover:shadow-xl transform hover:scale-110"
+                                            title="Delete {{ $gem->name }}"
+                                        >
                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
                                             </svg>
@@ -172,6 +189,18 @@
                                     <div class="p-4 bg-gradient-to-r from-[#9a8211]/5 to-transparent">
                                         <h4 class="font-semibold text-gray-900 truncate">{{ $gem->name }}</h4>
                                         <p class="text-sm text-gray-600 mt-1 line-clamp-2">{{ $gem->description }}</p>
+                                        <div class="flex items-center justify-between mt-3">
+                                            <span class="text-xs text-gray-500">{{ $gem->created_at->diffForHumans() }}</span>
+                                            <button 
+                                                wire:click="confirmDelete({{ $gem->id }})"
+                                                class="text-red-500 hover:text-red-700 transition-colors duration-200"
+                                                title="Delete gem"
+                                            >
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                                </svg>
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             @empty
@@ -192,11 +221,47 @@
                 <!-- Image Preview Modal -->
                 @if ($selectedImage)
                     <div class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50" wire:click.self="closeImage">
-                        <div class="bg-white rounded-2xl p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-                            <div class="flex justify-end">
-                                <button wire:click.prevent="closeImage" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+                        <div class="bg-white rounded-2xl p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto mx-4">
+                            <div class="flex justify-end mb-4">
+                                <button wire:click="closeImage" class="text-gray-500 hover:text-gray-700 text-3xl font-bold w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors">×</button>
                             </div>
                             <img src="{{ $selectedImage }}" alt="Full Screen Gem" class="w-full h-auto max-h-[80vh] object-contain rounded-lg">
+                        </div>
+                    </div>
+                @endif
+
+                <!-- Enhanced Delete Confirmation Modal -->
+                @if ($confirmingGemDeletion && $gemToDelete)
+                    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                        <div class="bg-white rounded-2xl p-6 w-full max-w-md mx-4 transform transition-all duration-300 scale-100">
+                            <div class="flex items-center justify-center w-16 h-16 mx-auto mb-4 bg-red-100 rounded-full">
+                                <svg class="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                </svg>
+                            </div>
+                            
+                            <h3 class="text-lg font-semibold text-gray-900 mb-2 text-center">Delete Gem</h3>
+                            <p class="text-gray-600 mb-2 text-center">Are you sure you want to delete</p>
+                            <p class="text-gray-900 font-semibold mb-4 text-center">"{{ $gemToDelete->name }}"?</p>
+                            <p class="text-sm text-red-600 mb-6 text-center">This action cannot be undone and will permanently remove the gem and its image from your collection.</p>
+                            
+                            <div class="flex justify-end space-x-4">
+                                <button 
+                                    wire:click="cancelDelete" 
+                                    class="px-6 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors duration-200 font-medium"
+                                >
+                                    Cancel
+                                </button>
+                                <button 
+                                    wire:click="deleteGem({{ $gemIdToDelete }})" 
+                                    class="px-6 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors duration-200 font-medium flex items-center"
+                                >
+                                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                    </svg>
+                                    Delete Gem
+                                </button>
+                            </div>
                         </div>
                     </div>
                 @endif
@@ -211,6 +276,18 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                     </svg>
                     <span class="font-semibold">{{ session('message') }}</span>
+                </div>
+            </div>
+        @endif
+
+        <!-- Error Message -->
+        @if (session('error'))
+            <div class="fixed bottom-6 right-6 bg-gradient-to-r from-red-500 to-red-600 text-white px-6 py-4 rounded-2xl shadow-2xl transform translate-y-0 opacity-100 transition-all duration-300 z-50">
+                <div class="flex items-center">
+                    <svg class="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <span class="font-semibold">{{ session('error') }}</span>
                 </div>
             </div>
         @endif
@@ -230,4 +307,87 @@
             -webkit-box-orient: vertical;
             overflow: hidden;
         }
+
+        /* Auto-hide flash messages */
+        .flash-message {
+            animation: slideIn 0.3s ease-out, slideOut 0.3s ease-in 4.7s forwards;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideOut {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+        }
     </style>
+
+    @push('scripts')
+        <script>
+            document.addEventListener('livewire:load', function () {
+                // Auto-hide flash messages after 5 seconds
+                setTimeout(function() {
+                    const flashMessages = document.querySelectorAll('[class*="fixed bottom-6"]');
+                    flashMessages.forEach(function(message) {
+                        message.style.transform = 'translateX(100%)';
+                        message.style.opacity = '0';
+                        setTimeout(function() {
+                            message.remove();
+                        }, 300);
+                    });
+                }, 5000);
+
+                // Handle gem deletion events
+                Livewire.on('gem-deleted', (data) => {
+                    console.log('Gem deleted:', data.gemId);
+                    // You can add additional UI updates here if needed
+                });
+
+                Livewire.on('gem-added', () => {
+                    console.log('New gem added to collection');
+                    // You can add additional UI updates here if needed
+                });
+            });
+
+            // Close modal when clicking outside
+            document.addEventListener('click', function(e) {
+                if (e.target.classList.contains('fixed') && e.target.classList.contains('inset-0')) {
+                    // This is clicking on the modal backdrop
+                    const modal = e.target;
+                    if (modal.getAttribute('wire:click.self')) {
+                        // Let Livewire handle it
+                        return;
+                    }
+                }
+            });
+
+            // Handle keyboard events
+            document.addEventListener('keydown', function(e) {
+                // Close modals with Escape key
+                if (e.key === 'Escape') {
+                    // Check if image preview is open
+                    if (document.querySelector('[wire\\:click="closeImage"]')) {
+                        Livewire.emit('closeImage');
+                    }
+                    // Check if delete confirmation is open
+                    if (document.querySelector('[wire\\:click="cancelDelete"]')) {
+                        Livewire.emit('cancelDelete');
+                    }
+                }
+            });
+        </script>
+    @endpush
