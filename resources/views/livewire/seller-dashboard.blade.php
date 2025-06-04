@@ -63,7 +63,7 @@
                                 <svg class="w-5 h-5 text-[#9a8211] mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path>
                                 </svg>
-                                <span class="text-gray-700">{{ $user->phone_number ?? 'Not provided' }}</span>
+                                <span class="text-gray-700">{{ $user->telephone ?? 'Not provided' }}</span>
                             </div>
 
                             @if($user->bio)
@@ -134,16 +134,17 @@
                                 </div>
                                 
                                 <div>
-                                    <label for="description" class="block text-sm font-semibold text-gray-700 mb-2">Description</label>
+                                    <label for="description" class="block text-sm font-medium text-gray-700 mb-1">Description</label>
                                     <textarea id="description" rows="3" class="w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm focus:ring-2 focus:ring-[#9a8211] focus:border-[#9a8211] transition-all duration-200 resize-none" wire:model="description" placeholder="Describe your gem's unique features..." required></textarea>
                                     @error('description') <span class="text-red-500 text-sm mt-1 block">{{ $message }}</span> @enderror
                                 </div>
                                 
-                                <button type="submit" class="inline-flex items-center px-8 py-3 bg-gradient-to-r from-[#9a8211] to-[#b8951a] border border-transparent rounded-xl font-semibold text-white hover:from-[#8a7310] hover:to-[#a8851a] transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
+                                <button type="submit" class="inline-flex items-center px-8 py-3 bg-gradient-to-r from-[#9a8211] to-[#b8951a] border border-transparent rounded-xl font-semibold text-white hover:from-[#8a7310] hover:to-[#a8851a] transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5" wire:loading.attr="disabled" wire:loading.class="opacity-50 cursor-not-allowed">
                                     <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m-6 0h6m-6 0H6"></path>
                                     </svg>
-                                    Add to Collection
+                                    <span wire:loading.remove wire:target="storeGem">Add to Collection</span>
+                                    <span wire:loading wire:target="storeGem">Adding...</span>
                                 </button>
                             </form>
                         </div>
@@ -175,7 +176,7 @@
                                         
                                         <!-- Delete Button with Confirmation -->
                                         <button 
-                                            wire:click.stop="confirmDelete({{ $gem->id }})" 
+                                            wire:click.stop="confirmDelete('{{ $gem->_id }}')" 
                                             class="absolute top-4 right-4 w-10 h-10 bg-red-500 hover:bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center shadow-lg hover:shadow-xl transform hover:scale-110"
                                             title="Delete {{ $gem->name }}"
                                         >
@@ -192,7 +193,7 @@
                                         <div class="flex items-center justify-between mt-3">
                                             <span class="text-xs text-gray-500">{{ $gem->created_at->diffForHumans() }}</span>
                                             <button 
-                                                wire:click="confirmDelete({{ $gem->id }})"
+                                                wire:click="confirmDelete('{{ $gem->_id }}')"
                                                 class="text-red-500 hover:text-red-700 transition-colors duration-200"
                                                 title="Delete gem"
                                             >
@@ -232,162 +233,63 @@
 
                 <!-- Enhanced Delete Confirmation Modal -->
                 @if ($confirmingGemDeletion && $gemToDelete)
-                    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                        <div class="bg-white rounded-2xl p-6 w-full max-w-md mx-4 transform transition-all duration-300 scale-100">
-                            <div class="flex items-center justify-center w-16 h-16 mx-auto mb-4 bg-red-100 rounded-full">
+                    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" wire:click.self="cancelDelete">
+                        <div class="bg-white rounded-2xl p-8 w-full max-w-md mx-4 transform transition-all duration-300 scale-100">
+                            <div class="flex items-center justify-center w-16 h-16 mx-auto mb-6 bg-red-100 rounded-full">
                                 <svg class="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
                                 </svg>
                             </div>
                             
-                            <h3 class="text-lg font-semibold text-gray-900 mb-2 text-center">Delete Gem</h3>
+                            <h3 class="text-xl font-bold text-gray-900 mb-3 text-center">Delete Gem</h3>
                             <p class="text-gray-600 mb-2 text-center">Are you sure you want to delete</p>
-                            <p class="text-gray-900 font-semibold mb-4 text-center">"{{ $gemToDelete->name }}"?</p>
-                            <p class="text-sm text-red-600 mb-6 text-center">This action cannot be undone and will permanently remove the gem and its image from your collection.</p>
+                            <p class="text-gray-900 font-semibold mb-6 text-center text-lg">"{{ $gemToDelete->name }}"</p>
+                            <p class="text-sm text-gray-500 mb-8 text-center">This action cannot be undone. The gem and its image will be permanently removed from your collection.</p>
                             
-                            <div class="flex justify-end space-x-4">
+                            <div class="flex space-x-4">
                                 <button 
                                     wire:click="cancelDelete" 
-                                    class="px-6 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors duration-200 font-medium"
+                                    class="flex-1 px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold rounded-xl transition-all duration-200 border border-gray-300"
                                 >
                                     Cancel
                                 </button>
                                 <button 
-                                    wire:click="deleteGem({{ $gemIdToDelete }})" 
-                                    class="px-6 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors duration-200 font-medium flex items-center"
+                                    wire:click="deleteGem" 
+                                    class="flex-1 px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                                    wire:loading.attr="disabled"
+                                    wire:loading.class="opacity-50 cursor-not-allowed"
                                 >
-                                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                                    </svg>
-                                    Delete Gem
+                                    <span wire:loading.remove wire:target="deleteGem">Delete Forever</span>
+                                    <span wire:loading wire:target="deleteGem">Deleting...</span>
                                 </button>
                             </div>
                         </div>
                     </div>
                 @endif
+
+                <!-- Success/Error Messages -->
+                @if (session()->has('message'))
+                    <div class="fixed top-4 right-4 bg-green-500 text-white px-6 py-4 rounded-xl shadow-lg z-50 transform transition-all duration-300" x-data="{ show: true }" x-show="show" x-init="setTimeout(() => show = false, 5000)">
+                        <div class="flex items-center">
+                            <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            {{ session('message') }}
+                        </div>
+                    </div>
+                @endif
+
+                @if (session()->has('error'))
+                    <div class="fixed top-4 right-4 bg-red-500 text-white px-6 py-4 rounded-xl shadow-lg z-50 transform transition-all duration-300" x-data="{ show: true }" x-show="show" x-init="setTimeout(() => show = false, 5000)">
+                        <div class="flex items-center">
+                            <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                            {{ session('error') }}
+                        </div>
+                    </div>
+                @endif
             </div>
         </div>
-
-        <!-- Success Message -->
-        @if (session('message'))
-            <div class="fixed bottom-6 right-6 bg-gradient-to-r from-green-500 to-green-600 text-white px-6 py-4 rounded-2xl shadow-2xl transform translate-y-0 opacity-100 transition-all duration-300 z-50">
-                <div class="flex items-center">
-                    <svg class="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
-                    <span class="font-semibold">{{ session('message') }}</span>
-                </div>
-            </div>
-        @endif
-
-        <!-- Error Message -->
-        @if (session('error'))
-            <div class="fixed bottom-6 right-6 bg-gradient-to-r from-red-500 to-red-600 text-white px-6 py-4 rounded-2xl shadow-2xl transform translate-y-0 opacity-100 transition-all duration-300 z-50">
-                <div class="flex items-center">
-                    <svg class="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
-                    <span class="font-semibold">{{ session('error') }}</span>
-                </div>
-            </div>
-        @endif
     </div>
-
-    <style>
-        .line-clamp-2 {
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-        }
-        
-        .line-clamp-3 {
-            display: -webkit-box;
-            -webkit-line-clamp: 3;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-        }
-
-        /* Auto-hide flash messages */
-        .flash-message {
-            animation: slideIn 0.3s ease-out, slideOut 0.3s ease-in 4.7s forwards;
-        }
-
-        @keyframes slideIn {
-            from {
-                transform: translateX(100%);
-                opacity: 0;
-            }
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
-        }
-
-        @keyframes slideOut {
-            from {
-                transform: translateX(0);
-                opacity: 1;
-            }
-            to {
-                transform: translateX(100%);
-                opacity: 0;
-            }
-        }
-    </style>
-
-    @push('scripts')
-        <script>
-            document.addEventListener('livewire:load', function () {
-                // Auto-hide flash messages after 5 seconds
-                setTimeout(function() {
-                    const flashMessages = document.querySelectorAll('[class*="fixed bottom-6"]');
-                    flashMessages.forEach(function(message) {
-                        message.style.transform = 'translateX(100%)';
-                        message.style.opacity = '0';
-                        setTimeout(function() {
-                            message.remove();
-                        }, 300);
-                    });
-                }, 5000);
-
-                // Handle gem deletion events
-                Livewire.on('gem-deleted', (data) => {
-                    console.log('Gem deleted:', data.gemId);
-                    // You can add additional UI updates here if needed
-                });
-
-                Livewire.on('gem-added', () => {
-                    console.log('New gem added to collection');
-                    // You can add additional UI updates here if needed
-                });
-            });
-
-            // Close modal when clicking outside
-            document.addEventListener('click', function(e) {
-                if (e.target.classList.contains('fixed') && e.target.classList.contains('inset-0')) {
-                    // This is clicking on the modal backdrop
-                    const modal = e.target;
-                    if (modal.getAttribute('wire:click.self')) {
-                        // Let Livewire handle it
-                        return;
-                    }
-                }
-            });
-
-            // Handle keyboard events
-            document.addEventListener('keydown', function(e) {
-                // Close modals with Escape key
-                if (e.key === 'Escape') {
-                    // Check if image preview is open
-                    if (document.querySelector('[wire\\:click="closeImage"]')) {
-                        Livewire.emit('closeImage');
-                    }
-                    // Check if delete confirmation is open
-                    if (document.querySelector('[wire\\:click="cancelDelete"]')) {
-                        Livewire.emit('cancelDelete');
-                    }
-                }
-            });
-        </script>
-    @endpush
+</div>

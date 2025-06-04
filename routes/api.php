@@ -1,5 +1,4 @@
 <?php
-
 use App\Http\Controllers\Api\GemController;
 use App\Http\Controllers\Api\RequirementController;
 use App\Models\User;
@@ -31,3 +30,5 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('gems', GemController::class);
     Route::apiResource('requirements', RequirementController::class);
 });
+
+Route::middleware('auth:sanctum')->get('/debug', [GemController::class, 'debug']);

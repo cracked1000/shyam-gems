@@ -17,7 +17,7 @@
         <div class="w-2/3 p-8">
             <h2 class="text-2xl font-semibold text-gray-800 text-center mb-8">Login to Marketplace</h2>
 
-            <!-- Display validation errors (Jetstream functionality) -->
+            
             @if ($errors->any())
                 <div class="mb-4 bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg">
                     @foreach ($errors->all() as $error)
@@ -32,11 +32,11 @@
                 </div>
             @endif
 
-            <!-- Pure HTML Form with Jetstream backend routes -->
+            
             <form method="POST" action="{{ route('login') }}" class="space-y-6">
                 @csrf
 
-                <!-- Email Input -->
+                
                 <div>
                     <input id="email" 
                         class="block w-full px-4 py-4 border border-gray-300 rounded-xl focus:outline-none focus:border-[#9a8211] text-gray-700 placeholder-gray-400 bg-white" 
@@ -48,7 +48,7 @@
                         autofocus />
                 </div>
 
-                <!-- Password Input -->
+               
                 <div>
                     <input id="password" 
                         class="block w-full px-4 py-4 border border-gray-300 rounded-xl focus:outline-none focus:border-[#9a8211] text-gray-700 placeholder-gray-400 bg-white" 
@@ -59,7 +59,7 @@
                         autocomplete="current-password" />
                 </div>
 
-                <!-- Login Button -->
+                
                 <div>
                     <button type="submit" 
                         class="w-full bg-[#9a8211] hover:bg-[#8a7310] focus:bg-[#8a7310] active:bg-[#7a6310] py-4 text-white font-medium rounded-xl transition-colors duration-200">

@@ -11,8 +11,12 @@
   {
       public function index()
       {
-          $gems = Gem::where('seller_id', auth()->id())->get();
-          return response()->json($gems);
+        $userId = auth()->id();
+        $gems = Gem::where(function($query) use ($userId) {
+            $query->where('seller_id', $userId)
+                ->orWhere('seller_id', (string) $userId);
+        })->get();
+        return response()->json($gems);
       }
 
       public function store(Request $request)
@@ -36,10 +40,28 @@
       }
 
       public function show(Gem $gem)
-      {
-          if ($gem->seller_id !== auth()->id()) {
-              abort(403, 'Unauthorized');
-          }
-          return response()->json($gem);
-      }
-  }
+        {
+            if ($gem->seller_id != auth()->id() && $gem->seller_id != (string) auth()->id()) {
+                abort(403, 'Unauthorized');
+            }
+            return response()->json($gem);
+        }
+    
+    public function debug()
+    {
+        $allGems = \App\Models\Gem::all();
+        return response()->json([
+            'authenticated_user_id' => auth()->id(),
+            'authenticated_user_email' => auth()->user()->email,
+            'total_gems_in_db' => \App\Models\Gem::count(),
+            'gems_for_this_user' => \App\Models\Gem::where('seller_id', auth()->id())->count(),
+            'all_gems_with_seller_ids' => $allGems->map(function($gem) {
+                return [
+                    'id' => $gem->id,
+                    'name' => $gem->name,
+                    'seller_id' => $gem->seller_id
+                ];
+            })
+        ]);
+    }
+}

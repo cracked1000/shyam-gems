@@ -12,7 +12,7 @@ use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use App\Notifications\CustomVerifyEmail; // Add this import
+use App\Notifications\CustomVerifyEmail;
 
 class User extends Authenticatable implements MustVerifyEmail
 {
@@ -22,7 +22,7 @@ class User extends Authenticatable implements MustVerifyEmail
     use Notifiable;
     use TwoFactorAuthenticatable;
 
-    // Role constants for consistency
+    // Role constants
     public const ROLE_CLIENT = 'client';
     public const ROLE_SELLER = 'seller';
 
@@ -85,12 +85,12 @@ class User extends Authenticatable implements MustVerifyEmail
         ];
     }
 
-    // =================
-    // ACCESSORS
-    // =================
+    // Accessors
 
     /**
-     * Get the user's full name
+     * Get the user's full name.
+     *
+     * @return string
      */
     public function getFullNameAttribute(): string
     {
@@ -102,7 +102,9 @@ class User extends Authenticatable implements MustVerifyEmail
     }
 
     /**
-     * Check if user is currently online (within last 5 minutes)
+     * Check if user is currently online (within last 5 minutes).
+     *
+     * @return bool
      */
     public function getIsCurrentlyOnlineAttribute(): bool
     {
@@ -110,13 +112,10 @@ class User extends Authenticatable implements MustVerifyEmail
             return true;
         }
 
-        // Consider user online if last seen within 5 minutes
         return $this->last_seen_at && $this->last_seen_at->gt(now()->subMinutes(5));
     }
 
-    // =================
-    // ROLE METHODS
-    // =================
+    // Role Methods
 
     public function isClient(): bool
     {
@@ -139,7 +138,9 @@ class User extends Authenticatable implements MustVerifyEmail
     }
 
     /**
-     * Get the user's dashboard route based on their role
+     * Get the user's dashboard route based on their role.
+     *
+     * @return string
      */
     public function getDashboardRoute(): string
     {
@@ -151,7 +152,9 @@ class User extends Authenticatable implements MustVerifyEmail
     }
 
     /**
-     * Get the user's dashboard route name based on their role
+     * Get the user's dashboard route name based on their role.
+     *
+     * @return string
      */
     public function getDashboardRouteName(): string
     {
@@ -162,12 +165,13 @@ class User extends Authenticatable implements MustVerifyEmail
         };
     }
 
-    // =================
-    // BROADCASTING METHODS
-    // =================
+    // Broadcasting Methods
 
     /**
      * Get the channels that model events should broadcast on.
+     *
+     * @param string $event
+     * @return array
      */
     public function broadcastOn(string $event): array
     {
@@ -179,6 +183,9 @@ class User extends Authenticatable implements MustVerifyEmail
 
     /**
      * Get the data that should be broadcast with model events.
+     *
+     * @param string $event
+     * @return array
      */
     public function broadcastWith(string $event): array
     {
@@ -193,12 +200,10 @@ class User extends Authenticatable implements MustVerifyEmail
         ];
     }
 
-    // =================
-    // ONLINE STATUS METHODS
-    // =================
+    // Online Status Methods
 
     /**
-     * Mark user as online
+     * Mark user as online.
      */
     public function markAsOnline(): void
     {
@@ -209,7 +214,7 @@ class User extends Authenticatable implements MustVerifyEmail
     }
 
     /**
-     * Mark user as offline
+     * Mark user as offline.
      */
     public function markAsOffline(): void
     {
@@ -220,19 +225,19 @@ class User extends Authenticatable implements MustVerifyEmail
     }
 
     /**
-     * Update last seen timestamp
+     * Update last seen timestamp.
      */
     public function updateLastSeen(): void
     {
         $this->update(['last_seen_at' => now()]);
     }
 
-    // =================
-    // RELATIONSHIPS
-    // =================
+    // Relationships
 
     /**
-     * Get messages sent by this user
+     * Get messages sent by this user.
+     *
+     * @return HasMany
      */
     public function sentMessages(): HasMany
     {
@@ -240,7 +245,9 @@ class User extends Authenticatable implements MustVerifyEmail
     }
 
     /**
-     * Get messages received by this user
+     * Get messages received by this user.
+     *
+     * @return HasMany
      */
     public function receivedMessages(): HasMany
     {
@@ -248,7 +255,9 @@ class User extends Authenticatable implements MustVerifyEmail
     }
 
     /**
-     * Get conversations this user participates in
+     * Get conversations this user participates in.
+     *
+     * @return BelongsToMany
      */
     public function conversations(): BelongsToMany
     {
@@ -257,31 +266,44 @@ class User extends Authenticatable implements MustVerifyEmail
             ->withTimestamps();
     }
 
-    // =================
-    // QUERY SCOPES
-    // =================
+    // Query Scopes
 
+    /**
+     * Scope for clients.
+     */
     public function scopeClients($query)
     {
         return $query->where('role', self::ROLE_CLIENT);
     }
 
+    /**
+     * Scope for sellers.
+     */
     public function scopeSellers($query)
     {
         return $query->where('role', self::ROLE_SELLER);
     }
 
+    /**
+     * Scope for specific role.
+     */
     public function scopeWithRole($query, string $role)
     {
         return $query->where('role', $role);
     }
 
+    /**
+     * Scope for online users.
+     */
     public function scopeOnline($query)
     {
         return $query->where('is_online', true)
             ->orWhere('last_seen_at', '>', now()->subMinutes(5));
     }
 
+    /**
+     * Scope for offline users.
+     */
     public function scopeOffline($query)
     {
         return $query->where('is_online', false)
@@ -291,12 +313,12 @@ class User extends Authenticatable implements MustVerifyEmail
             });
     }
 
-    // =================
-    // NOTIFICATION ROUTING
-    // =================
+    // Notification Routing
 
     /**
      * Route notifications for the broadcast channel.
+     *
+     * @return array
      */
     public function routeNotificationForBroadcast()
     {
@@ -308,6 +330,8 @@ class User extends Authenticatable implements MustVerifyEmail
 
     /**
      * Get the notification routing information for the database driver.
+     *
+     * @return int
      */
     public function routeNotificationForDatabase()
     {

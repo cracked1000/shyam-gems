@@ -42,7 +42,7 @@
                         <p class="text-gray-600"><i class="fas fa-envelope mr-2"></i> {{ $user->email ?? 'N/A' }}</p>
                     </div>
                     <div class="bg-gray-50 p-4 rounded-2xl">
-                        <p class="text-gray-600"><i class="fas fa-phone mr-2"></i> {{ $user->phone_number ?? 'N/A' }}</p> <!-- Updated from telephone -->
+                        <p class="text-gray-600"><i class="fas fa-phone mr-2"></i> {{ $user->telephone ?? 'N/A' }}</p> <!-- Updated from telephone -->
                     </div>
                 </div>
             </div>

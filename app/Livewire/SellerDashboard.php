@@ -23,6 +23,7 @@ class SellerDashboard extends Component
     public $selectedImage = null;
     public $confirmingGemDeletion = false;
     public $gemIdToDelete = null;
+    public $gemToDelete = null; // Add this property
 
     protected $rules = [
         'name' => 'required|string|max:255',
@@ -38,73 +39,106 @@ class SellerDashboard extends Component
 
         $this->user = Auth::user();
         $this->loadGems();
-        $this->loadSampleData();
+        
     }
 
     public function loadGems()
     {
-        $this->gems = Gem::forSeller($this->user->id)->get(); // Use scope with string casting
+        $this->gems = Gem::forSeller($this->user->id)->get();
     }
 
-    public function loadSampleData()
-    {
-        $this->feeds = [
-            ['id' => 1, 'user_id' => 2, 'content' => 'Check out my new gem!', 'username' => 'janesmith'],
-            ['id' => 2, 'user_id' => 1, 'content' => 'Selling a sapphire.', 'username' => 'johndoe'],
-        ];
-
-        $this->messages = [
-            ['id' => 1, 'sender_id' => 2, 'receiver_id' => 1, 'content' => 'Interested in your gem?', 'username' => 'janesmith'],
-            ['id' => 2, 'sender_id' => 1, 'receiver_id' => 2, 'content' => 'Sure, let’s talk!', 'username' => 'johndoe'],
-        ];
-    }
+    
 
     public function storeGem()
     {
         $this->validate();
 
-        $imagePath = $this->image->store('gems', 'public');
-        Log::info('Gem image stored at: ' . $imagePath);
+        try {
+            $imagePath = $this->image->store('gems', 'public');
+            Log::info('Gem image stored at: ' . $imagePath);
 
-        Gem::create([
-            'name' => $this->name,
-            'description' => $this->description,
-            'image' => $imagePath,
-            'seller_id' => (string) $this->user->id, // Explicitly cast to string
-        ]);
+            Gem::create([
+                'name' => $this->name,
+                'description' => $this->description,
+                'image' => $imagePath,
+                'seller_id' => (string) $this->user->id,
+            ]);
 
-        $this->reset(['name', 'description', 'image']);
-        $this->loadGems();
-        session()->flash('message', 'Gem added successfully!');
+            $this->reset(['name', 'description', 'image']);
+            $this->loadGems();
+            session()->flash('message', 'Gem added successfully!');
+        } catch (\Exception $e) {
+            Log::error('Error storing gem: ' . $e->getMessage());
+            session()->flash('error', 'Failed to add gem. Please try again.');
+        }
     }
 
     public function confirmDelete($gemId)
     {
-        $this->confirmingGemDeletion = true;
-        $this->gemIdToDelete = $gemId;
+        try {
+            // Find the gem to get its details for the confirmation modal
+            $this->gemToDelete = Gem::where('_id', $gemId)
+                ->where('seller_id', (string) $this->user->id)
+                ->first();
+            
+            if ($this->gemToDelete) {
+                $this->confirmingGemDeletion = true;
+                $this->gemIdToDelete = $gemId;
+            } else {
+                session()->flash('error', 'Gem not found or you are not authorized to delete it.');
+            }
+        } catch (\Exception $e) {
+            Log::error('Error finding gem for deletion: ' . $e->getMessage());
+            session()->flash('error', 'Error occurred while preparing to delete gem.');
+        }
     }
 
     public function cancelDelete()
     {
         $this->confirmingGemDeletion = false;
         $this->gemIdToDelete = null;
+        $this->gemToDelete = null;
     }
 
-    public function deleteGem($gemId)
+    public function deleteGem($gemId = null)
     {
-        $gem = Gem::where('_id', $gemId)->where('seller_id', (string) $this->user->id)->first();
-        if ($gem) {
-            if ($gem->image && Storage::disk('public')->exists($gem->image)) {
-                Storage::disk('public')->delete($gem->image);
-                Log::info('Deleted gem image: ' . $gem->image);
+        try {
+            // Use the stored gem ID if no ID is passed
+            $idToDelete = $gemId ?: $this->gemIdToDelete;
+            
+            if (!$idToDelete) {
+                session()->flash('error', 'No gem selected for deletion.');
+                return;
             }
-            $gem->delete();
-            $this->loadGems();
+
+            $gem = Gem::where('_id', $idToDelete)
+                ->where('seller_id', (string) $this->user->id)
+                ->first();
+            
+            if ($gem) {
+                // Delete the image file if it exists
+                if ($gem->image && Storage::disk('public')->exists($gem->image)) {
+                    Storage::disk('public')->delete($gem->image);
+                    Log::info('Deleted gem image: ' . $gem->image);
+                }
+                
+                // Delete the gem record
+                $gem->delete();
+                
+                // Reload gems and close modal
+                $this->loadGems();
+                $this->cancelDelete();
+                
+                session()->flash('message', 'Gem deleted successfully!');
+                Log::info('Gem deleted successfully: ' . $gem->name);
+            } else {
+                $this->cancelDelete();
+                session()->flash('error', 'Gem not found or you are not authorized to delete it.');
+            }
+        } catch (\Exception $e) {
+            Log::error('Error deleting gem: ' . $e->getMessage());
             $this->cancelDelete();
-            session()->flash('message', 'Gem deleted successfully!');
-        } else {
-            $this->cancelDelete();
-            session()->flash('message', 'Gem not found or unauthorized to delete!');
+            session()->flash('error', 'An error occurred while deleting the gem. Please try again.');
         }
     }
 
@@ -134,6 +168,7 @@ class SellerDashboard extends Component
             'selectedImage' => $this->selectedImage,
             'confirmingGemDeletion' => $this->confirmingGemDeletion,
             'gemIdToDelete' => $this->gemIdToDelete,
+            'gemToDelete' => $this->gemToDelete, // Pass this to the view
         ])->layout('components.layouts.app')->title('Seller Dashboard');
     }
 }
